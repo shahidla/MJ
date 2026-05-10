@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>MJ Producer app</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "72", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #f4f7fb;
+        }
+
+        .mj-shell-header {
+            background-color: #0a6ed1;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .mj-shell-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .mj-shell-subtitle {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-top: 0.1rem;
+        }
+
+        .mj-shell-main {
+            padding: 1.5rem;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .mj-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1rem;
+        }
+
+        .mj-card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .mj-card-text {
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        #log {
+            white-space: pre-wrap;
+            border: 1px solid #ccc;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            max-height: 280px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            background-color: #fafafa;
+        }
+
+        #mj-eq-canvas {
+            width: 100%;
+            max-width: 600px;
+            height: 140px;
+            border: 1px solid #ccc;
+            margin-top: 0.5rem;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="mj-shell-header">
+        <div class="mj-shell-title">MJ demo</div>
+        <div class="mj-shell-subtitle">Producer app Audio tap and equaliser</div>
+    </header>
+
+    <main class="mj-shell-main">
+        <section class="mj-card">
+            <div class="mj-card-title">Audio source</div>
+            <p class="mj-card-text">
+                This page plays the MJ MP3 and sends audio chunks to CAP for debugging.
+            </p>
+
+            <audio id="mj-audio" controls>
+                <source src="/media/billie-jean.mp3" type="audio/mpeg" />
+                Your browser needs audio support.
+            </audio>
+        </section>
+
+        <section class="mj-card">
+            <div class="mj-card-title">Local equaliser</div>
+            <p class="mj-card-text">
+                The equaliser reads from the analyser node and draws bars.
+            </p>
+            <canvas id="mj-eq-canvas" width="600" height="140"></canvas>
+        </section>
+
+        <section class="mj-card">
+            <div class="mj-card-title">Log</div>
+            <div id="log"></div>
+        </section>
+    </main>
+
+    <script>
+        const audioEl = document.getElementById("mj-audio");
+        const logEl = document.getElementById("log");
+        const eqCanvas = document.getElementById("mj-eq-canvas");
+
+        const MJ_SONG_NAME = "Billie Jean MJ mashup";
+
+        function log(msg) {
+            console.log(msg);
+            logEl.textContent += msg + "\n";
+        }
+
+        let audioContext;
+        let workletNode;
+        let analyser;
+        let eqAnimationId;
+
+        function buildEqualizerFrame(barValues) {
+            return {
+                type: "MJ.EqualizerFrame",
+                songName: MJ_SONG_NAME,
+                timeSec: audioEl.currentTime || 0,
+                bars: barValues
+            };
+        }
+
+        async function sendEqualizerFrame(frame) {
+            try {
+                await fetch("/mj/eq-debug", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(frame)
+                });
+            } catch (e) {
+                console.error("Send MJ.EqualizerFrame error", e);
+                log("Send MJ.EqualizerFrame error " + e.message);
+            }
+        }
+
+        function startEqualizer() {
+            if (!analyser || !eqCanvas) {
+                log("Equalizer missing analyser or canvas");
+                return;
+            }
+
+            const canvasCtx = eqCanvas.getContext("2d");
+            const width = eqCanvas.width;
+            const height = eqCanvas.height;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            const barCount = 48;
+            const step = Math.max(1, Math.floor(bufferLength / barCount));
+
+            const EQ_COLORS = [
+                "#0a6ed1",
+                "#2b7d2b",
+                "#e9730c",
+                "#a30000",
+                "#5c5c5c"
+            ];
+
+            function draw() {
+                eqAnimationId = requestAnimationFrame(draw);
+
+                analyser.getByteFrequencyData(dataArray);
+
+                canvasCtx.clearRect(0, 0, width, height);
+
+                const barWidth = width / barCount;
+                const bars = [];
+
+                const timeSec = audioEl.currentTime || 0;
+                const colorIndex = Math.floor(timeSec) % EQ_COLORS.length;
+                const currentColor = EQ_COLORS[colorIndex];
+
+                canvasCtx.fillStyle = currentColor;
+
+                for (let i = 0; i < barCount; i++) {
+                    const value = dataArray[i * step] || 0;
+                    const barHeight = (value / 255) * height;
+
+                    const x = i * barWidth;
+                    const y = height - barHeight;
+
+                    canvasCtx.fillRect(x, y, barWidth * 0.7, barHeight);
+
+                    const normalized = value / 255;
+                    bars.push(Number(normalized.toFixed(3)));
+                }
+
+                const frame = buildEqualizerFrame(bars);
+                console.log("MJ.EqualizerFrame", frame);
+                sendEqualizerFrame(frame);
+            }
+
+            if (!eqAnimationId) {
+                draw();
+                log("Equalizer started");
+            }
+        }
+
+
+
+        async function initAudioTap() {
+            audioContext = new AudioContext({ sampleRate: 16000 });
+
+            await audioContext.audioWorklet.addModule("/mj-audio-worklet.js");
+
+            const sourceNode = audioContext.createMediaElementSource(audioEl);
+            workletNode = new AudioWorkletNode(
+                audioContext,
+                "mj-pcm-logger-worklet"
+            );
+
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+
+            sourceNode.connect(workletNode);
+            workletNode.connect(analyser);
+            analyser.connect(audioContext.destination);
+
+            workletNode.port.onmessage = async (event) => {
+                const pcm16 = event.data;
+                log("Chunk length " + pcm16.length + " samples");
+
+                const blob = new Blob([pcm16.buffer], {
+                    type: "application/octet-stream"
+                });
+
+                try {
+                    await fetch("/mj/audio-debug", {
+                        method: "POST",
+                        body: blob
+                    });
+                } catch (e) {
+                    console.error("Send audio error", e);
+                    log("Send audio error " + e.message);
+                }
+            };
+
+            log("Audio tap initialised");
+            startEqualizer();
+        }
+
+        audioEl.addEventListener("play", async () => {
+            if (!audioContext) {
+                await initAudioTap();
+            }
+            if (audioContext.state === "suspended") {
+                await audioContext.resume();
+            }
+        });
+
+        log("Ready. Press play on the audio control.");
+    </script>
+</body>
+
+</html>

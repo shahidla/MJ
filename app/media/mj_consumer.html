@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>MJ Consumer app</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "72", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #f4f7fb;
+        }
+
+        .mj-shell-header {
+            background-color: #0a6ed1;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .mj-shell-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .mj-shell-subtitle {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-top: 0.1rem;
+        }
+
+        .mj-shell-main {
+            padding: 1.5rem;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        .mj-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1rem;
+        }
+
+        .mj-card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .mj-card-text {
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+    </style>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+    <header class="mj-shell-header">
+        <div class="mj-shell-title">MJ demo</div>
+        <div class="mj-shell-subtitle">Consumer app   Remote equaliser and random year timeline</div>
+    </header>
+
+    <main class="mj-shell-main">
+        <section class="mj-card">
+            <div class="mj-card-title">Remote equaliser</div>
+            <p class="mj-card-text">
+                This equaliser is driven by MJ.EqualizerFrame events from CAP.
+            </p>
+
+            <canvas id="eq-remote-canvas" width="600" height="140" style="border:1px solid #ccc"></canvas>
+        </section>
+
+        <section class="mj-card">
+            <div class="mj-card-title">Random year lollipop timeline (D3)</div>
+            <p class="mj-card-text">
+                Fifteen years arrive in a random order but are placed on the axis by their numeric value.
+                Latest year is highlighted.
+            </p>
+
+            <!-- increased height -->
+            <svg id="d3-timeline" width="600" height="240"></svg>
+        </section>
+    </main>
+
+    <script>
+        const canvas = document.getElementById("eq-remote-canvas");
+        const ctx = canvas.getContext("2d");
+        const width = canvas.width;
+        const height = canvas.height;
+
+        const EQ_COLORS = [
+            "#0a6ed1",
+            "#2b7d2b",
+            "#e9730c",
+            "#a30000",
+            "#5c5c5c"
+        ];
+
+        function drawBars(bars, timeSec) {
+            ctx.clearRect(0, 0, width, height);
+
+            const barCount = bars.length || 1;
+            const barWidth = width / barCount;
+
+            const t = timeSec || 0;
+            const colorIndex = Math.floor(t) % EQ_COLORS.length;
+            const currentColor = EQ_COLORS[colorIndex];
+
+            ctx.fillStyle = currentColor;
+
+            bars.forEach((v, i) => {
+                const value = Math.max(0, Math.min(1, v || 0));
+                const barHeight = value * height;
+                const x = i * barWidth;
+                const y = height - barHeight;
+                ctx.fillRect(x, y, barWidth * 0.7, barHeight);
+            });
+        }
+
+        const timelineSVG = d3.select("#d3-timeline");
+        const tlWidth = 600;
+        const tlHeight = 240;
+
+        const marginLeft = 40;
+        const marginRight = 40;
+        const innerWidth = tlWidth - marginLeft - marginRight;
+
+        const incomingYears = [
+            1990, 1845, 2001, 1910, 1972,
+            1898, 2011, 1933, 1875, 1950,
+            1999, 1888, 1920, 1965, 1901
+        ];
+
+        let revealedYears = [];
+        let latestYear = null;
+
+        const minYear = d3.min(incomingYears);
+        const maxYear = d3.max(incomingYears);
+
+        const xScale = d3.scaleLinear()
+            .domain([minYear, maxYear])
+            .range([0, innerWidth]);
+
+        const axisGroup = timelineSVG.append("g")
+            .attr("transform", "translate(" + marginLeft + ",160)");
+
+        const marksGroup = timelineSVG.append("g")
+            .attr("transform", "translate(" + marginLeft + ",160)");
+
+        axisGroup.append("line")
+            .attr("x1", 0)
+            .attr("x2", innerWidth)
+            .attr("y1", 0)
+            .attr("y2", 0)
+            .attr("stroke", "#666666")
+            .attr("stroke-width", 2);
+
+        function renderTimeline() {
+            const marks = marksGroup
+                .selectAll(".lollipop")
+                .data(revealedYears, d => d);
+
+            const enter = marks.enter()
+                .append("g")
+                .attr("class", "lollipop")
+                .attr("transform", d => "translate(" + xScale(d) + ",0)");
+
+            // bigger stem
+            enter.append("line")
+                .attr("y1", 0)
+                .attr("y2", -60)
+                .attr("stroke-width", 4);
+
+            // bigger circle
+            enter.append("circle")
+                .attr("cy", -60)
+                .attr("r", 10);
+
+            enter.append("text")
+                .attr("y", -35 + 15)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12px")
+                .text(d => d);
+
+            const all = enter.merge(marks);
+
+            all.select("line")
+                .attr("stroke", d => d === latestYear ? "#0a6ed1" : "#aaaaaa");
+
+            all.select("circle")
+                .attr("r", d => d === latestYear ? 12 : 10)
+                .attr("fill", d => d === latestYear ? "#0a6ed1" : "#ffffff")
+                .attr("stroke", "#0a6ed1")
+                .attr("stroke-width", 2);
+
+            marks.exit().remove();
+        }
+
+        function updateTimelineD3(timeSec) {
+            if (!Number.isFinite(timeSec)) {
+                return;
+            }
+
+            const stepSeconds = 3;
+            const rawIndex = Math.floor(timeSec / stepSeconds);
+            const index = rawIndex % incomingYears.length;
+            const year = incomingYears[index];
+
+            if (!revealedYears.includes(year)) {
+                revealedYears.push(year);
+            }
+
+            latestYear = year;
+            renderTimeline();
+        }
+
+        const sse = new EventSource("/mj/eq-stream");
+
+        sse.addEventListener("mj.eq.frame", (event) => {
+            try {
+                const frame = JSON.parse(event.data);
+                if (Array.isArray(frame.bars)) {
+                    const t = frame.timeSec || 0;
+                    drawBars(frame.bars, t);
+                    updateTimelineD3(t);
+                }
+            } catch (e) {
+                console.error("Error parsing MJ.EqualizerFrame", e);
+            }
+        });
+
+        sse.onerror = (err) => {
+            console.error("SSE error", err);
+        };
+    </script>
+</body>
+
+</html>
