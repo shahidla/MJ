@@ -383,15 +383,7 @@ npm install
 node index.js
 ```
 
-**`.env` file (not in repo — create manually in repo root):**
-```
-SOLACE_URL=wss://mr-connection-rcgt0ju559a.messaging.solace.cloud:443
-SOLACE_VPN=mj-live
-SOLACE_USERNAME=solace-cloud-client
-SOLACE_PASSWORD=lsno5kkm61fsjrvmmcbo3r0jor
-TRANSPORT=local
-ASSEMBLYAI_API_KEY=4d4d7e15faef4fafb2fdb5eccd84774f
-```
+
 
 **What the temporary AssemblyAI integration does:**
 - `bridge/assemblyai.js` connects directly to `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`
