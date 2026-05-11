@@ -14,8 +14,6 @@ originSessionId: 19006e94-b907-4548-8353-1288b951cab7
 
 ---
 
----
-
 ## Old Code — Reference Only
 
 The original v1 code (SSE, OpenAI Whisper, D3 hardcoded years, Billie Jean only) is in the repo for reference. Do not build from it. Key files for reference:
@@ -92,8 +90,6 @@ Then silence. Then the closing reflection — the AI's full synthesis of all fou
 
 ---
 
----
-
 ## Two Screens — Architectural Decision
 
 Two screens is not a UX preference. It is the architecture made visible.
@@ -133,8 +129,6 @@ The `chronicle/event` Solace payload carries an act directive. When the first Ac
 - `New Plan/mj-concert-visualizer.html` → top section (WebGL visualizer)
 - `New Plan/mj-ai-vision-demo.html` → bottom sections (cognitive pipeline + chronicle)
 - One URL. One page. Both wired to Solace. Visual design stays — do not redesign.
-
----
 
 ---
 
@@ -267,21 +261,20 @@ RAG is NOT used on the lyrics. That would be lip-syncing — a fake demo. RAG en
 |----------|----------|--------|
 | `app/mj-audio-worklet.js` | Keep as-is | Produces PCM16 at 16kHz mono — exactly what AssemblyAI requires |
 | PCM16 → WAV wrapping logic in `mj-events.js` | Move to CPI iFlow 1 | Same logic, different home |
-| Producer audio tap + EQ capture | Adapt | Change destination from POST /mj/audio-debug to Solace publish |
-| `New Plan/mj-concert-visualizer.html` | Keep as-is — Act 1 UI | Finished, do not redesign |
-| `New Plan/mj-ai-vision-demo.html` | Keep as-is — Act 2 UI | Finished, do not redesign |
+| `New Plan/mj-concert-visualizer.html` | Merge into consumer HTML — top section | Visual design stays, wire to Solace |
+| `New Plan/mj-ai-vision-demo.html` | Merge into consumer HTML — bottom sections | Visual design stays, wire to Solace |
 
 ## What Is Dropped
 
 | Old component | Why dropped |
-|---------------|-------------|
+|---|---|
 | SSE (`/mj/eq-stream`, `/mj/stream`) | Solace WebSocket replaces entirely |
 | OpenAI Whisper (`gpt-4o-transcribe`) | AssemblyAI streaming replaces |
 | OpenAI Realtime API (`mj-realtime.js`) | AssemblyAI replaces |
 | CAP as default scaffold | CAP now has a specific job, not a container for everything |
 | D3 hardcoded years | Real transcript-driven years from AssemblyAI |
-
----
+| `app/media/mj_producer.html` | Replace entirely — new producer is Play button + Solace status only, no EQ visualizer |
+| `app/media/mj_consumer.html` | Replace entirely — new consumer is the merged three-section layout |
 
 ---
 
@@ -301,8 +294,6 @@ These are not 8 prompt calls. Each is a distinct cognitive mode. Together they f
 | 8 | Generative Expression | Produces unrepeatable closing reflection in its own words | Finale Agent — generation tool |
 
 **LangChain is the cognitive orchestration layer. CPI is the enterprise gateway. These roles never merge.**
-
----
 
 ---
 
@@ -345,8 +336,6 @@ The second iFlow slot is free. The Reflection Agent at the finale runs inside CA
 | CAP app | Cloud Foundry (256MB free tier instance) |
 | HANA + Vector Store | SAP HANA Cloud free tier |
 | Audio file | Bundled with static app (Object Store is production pattern) |
-
----
 
 ---
 
