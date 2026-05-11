@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MJ Live — Producer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; color: #fff; font-family: monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 24px; }
+    h1 { font-size: 1.2rem; letter-spacing: 0.2em; color: #888; }
+
+    #controls { display: flex; gap: 12px; align-items: center; }
+    button { background: #c9a84c; color: #000; border: none; padding: 12px 32px; font-size: 0.9rem; font-family: monospace; letter-spacing: 0.1em; cursor: pointer; }
+    button:disabled { background: #333; color: #666; cursor: default; }
+    button#stop-btn { background: #555; color: #fff; }
+    button#stop-btn:hover:not(:disabled) { background: #888; }
+
+    #seek-row { display: flex; align-items: center; gap: 12px; }
+    #seek { width: 320px; accent-color: #c9a84c; cursor: pointer; }
+    #time { font-size: 0.8rem; color: #888; min-width: 90px; }
+
+    #status { font-size: 0.8rem; color: #555; }
+    .ok { color: #4caf50; }
+    .err { color: #f44336; }
+  </style>
+</head>
+<body>
+  <h1>MJ LIVE — PRODUCER</h1>
+
+  <div id="controls">
+    <button id="play-btn">PLAY</button>
+    <button id="stop-btn" disabled>STOP</button>
+  </div>
+
+  <div id="seek-row">
+    <input type="range" id="seek" min="0" max="100" value="0" step="0.1">
+    <span id="time">0:00 / 0:00</span>
+  </div>
+
+  <div id="status">Bridge: <span id="bridge-status">connecting...</span></div>
+
+  <audio id="audio" src="/audio-file" preload="auto"></audio>
+
+  <script>
+    const BRIDGE = 'http://localhost:3001';
+    const EQ_BARS = 32;
+    let audioCtx, analyser, source;
+    let playing = false;
+    let rafId = null;
+
+    const audio = document.getElementById('audio');
+    const playBtn = document.getElementById('play-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const seekEl = document.getElementById('seek');
+    const timeEl = document.getElementById('time');
+
+    // --- Bridge status ---
+    async function checkBridge() {
+      try {
+        const r = await fetch(`${BRIDGE}/status`);
+        const j = await r.json();
+        document.getElementById('bridge-status').textContent = `${j.transport} — consumers: ${j.clients}`;
+        document.getElementById('bridge-status').className = 'ok';
+      } catch (e) {
+        document.getElementById('bridge-status').textContent = 'not reachable';
+        document.getElementById('bridge-status').className = 'err';
+      }
+    }
+    checkBridge();
+    setInterval(checkBridge, 2000);
+
+    // --- Time display ---
+    function fmt(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    audio.addEventListener('loadedmetadata', () => {
+      seekEl.max = audio.duration;
+      timeEl.textContent = `0:00 / ${fmt(audio.duration)}`;
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (!seekEl._dragging) seekEl.value = audio.currentTime;
+      timeEl.textContent = `${fmt(audio.currentTime)} / ${fmt(audio.duration)}`;
+    });
+
+    audio.addEventListener('ended', () => {
+      playing = false;
+      playBtn.textContent = 'PLAY';
+      stopBtn.disabled = true;
+      cancelAnimationFrame(rafId);
+    });
+
+    // --- Seek ---
+    seekEl.addEventListener('mousedown', () => { seekEl._dragging = true; });
+    seekEl.addEventListener('mouseup', () => {
+      seekEl._dragging = false;
+      audio.currentTime = seekEl.value;
+    });
+    seekEl.addEventListener('input', () => {
+      timeEl.textContent = `${fmt(seekEl.value)} / ${fmt(audio.duration)}`;
+    });
+
+    // --- Play / Pause ---
+    playBtn.addEventListener('click', async () => {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = EQ_BARS * 2;
+        source = audioCtx.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }
+
+      if (playing) {
+        audio.pause();
+        playing = false;
+        playBtn.textContent = 'PLAY';
+        cancelAnimationFrame(rafId);
+      } else {
+        await audioCtx.resume();
+        await audio.play();
+        playing = true;
+        playBtn.textContent = 'PAUSE';
+        stopBtn.disabled = false;
+        sendEqFrames();
+      }
+    });
+
+    // --- Stop ---
+    stopBtn.addEventListener('click', () => {
+      audio.pause();
+      audio.currentTime = 0;
+      seekEl.value = 0;
+      playing = false;
+      playBtn.textContent = 'PLAY';
+      stopBtn.disabled = true;
+      cancelAnimationFrame(rafId);
+    });
+
+    // --- EQ frames ---
+    function sendEqFrames() {
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
+
+      function frame() {
+        if (!playing) return;
+        analyser.getByteFrequencyData(freqData);
+        const bars = Array.from(freqData.slice(0, EQ_BARS)).map(v => Math.round(v));
+        fetch(`${BRIDGE}/eq`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bars, ts: audio.currentTime })
+        }).catch(() => {});
+        rafId = requestAnimationFrame(frame);
+      }
+
+      rafId = requestAnimationFrame(frame);
+    }
+  </script>
+</body>
+</html>

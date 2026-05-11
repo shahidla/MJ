@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MJ Live — Consumer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; color: #fff; font-family: monospace; overflow: hidden; }
+
+    #header { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid #1a1a1a; }
+    #header h1 { font-size: 0.9rem; letter-spacing: 0.2em; color: #555; }
+    #conn-status { font-size: 0.75rem; }
+    .ok { color: #4caf50; }
+    .err { color: #f44336; }
+    .warn { color: #ff9800; }
+
+    #visualizer { width: 100vw; height: calc(100vh - 44px); display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding: 24px; }
+    .bar { flex: 1; max-width: 32px; background: #c9a84c; border-radius: 2px 2px 0 0; transition: height 0.05s ease-out; min-height: 2px; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>MJ LIVE — CONSUMER</h1>
+    <span id="conn-status" class="warn">connecting...</span>
+  </div>
+  <div id="visualizer"></div>
+
+  <script>
+    const BRIDGE_WS = 'ws://localhost:3001';
+    const EQ_BARS = 32;
+
+    // --- Build bars ---
+    const viz = document.getElementById('visualizer');
+    const bars = [];
+    for (let i = 0; i < EQ_BARS; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.height = '2px';
+      viz.appendChild(bar);
+      bars.push(bar);
+    }
+
+    const vizHeight = () => window.innerHeight - 44 - 48;
+
+    function renderBars(data) {
+      const h = vizHeight();
+      data.forEach((v, i) => {
+        if (bars[i]) bars[i].style.height = Math.max(2, (v / 255) * h) + 'px';
+      });
+    }
+
+    // --- WebSocket ---
+    const statusEl = document.getElementById('conn-status');
+
+    function connect() {
+      const ws = new WebSocket(BRIDGE_WS);
+
+      ws.onopen = () => {
+        statusEl.textContent = 'connected';
+        statusEl.className = 'ok';
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.topic === 'audio/equalizer' && msg.data && msg.data.bars) {
+            renderBars(msg.data.bars);
+          }
+        } catch (err) {}
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = 'disconnected — reconnecting...';
+        statusEl.className = 'err';
+        setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => {
+        statusEl.textContent = 'error';
+        statusEl.className = 'err';
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>
