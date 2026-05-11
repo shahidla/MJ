@@ -47,7 +47,9 @@ Michael Jackson never made it about himself. Even when he sang from personal pai
 
 The AI is not witnessing MJ's journey. It is witnessing **humanity's journey** — through the eyes of a man who never stopped caring about it.
 
-The closing question the AI asks is the question he spent his whole life asking: **"Did we change?"**
+The closing question the AI asks is the question he spent his whole life asking.
+
+The AI generates its full reflection in its own words — a synthesis of all four acts. The final line is always: **"Did we change?"** — it is the thematic anchor, not a generated guess. Everything before it is unrepeatable. That line is fixed.
 
 ---
 
@@ -127,10 +129,10 @@ The `chronicle/event` Solace payload carries an act directive. When the first Ac
 
 **Audio never travels to the consumer.** The consumer has no audio element, no speakers, no playback. It only receives derived events — EQ frames and chronicle events. By the time an event reaches the consumer the raw audio has done its job upstream and is gone.
 
-**The two existing HTML files are finished UI — do not redesign them.**
-- `New Plan/mj-concert-visualizer.html` → becomes the top section of the consumer screen
-- `New Plan/mj-ai-vision-demo.html` → becomes the bottom sections of the consumer screen
-- These get wired to Solace. The visual design stays.
+**The two existing HTML files get merged into one consumer HTML file with three sections.**
+- `New Plan/mj-concert-visualizer.html` → top section (WebGL visualizer)
+- `New Plan/mj-ai-vision-demo.html` → bottom sections (cognitive pipeline + chronicle)
+- One URL. One page. Both wired to Solace. Visual design stays — do not redesign.
 
 ---
 
@@ -156,7 +158,7 @@ The `chronicle/event` Solace payload carries an act directive. When the first Ac
 
 **PCM16 path — the cognitive pipeline**
 
-9. CPI iFlow 2 subscribed to `audio/pcm` via Solace
+9. CPI iFlow 1 subscribed to `audio/pcm` via Solace
 10. CPI wraps PCM16 chunks into WAV format
 11. Sends WAV to AssemblyAI streaming API
 12. AssemblyAI returns transcript in under 300ms — e.g. "1968, Martin Luther King assassinated"
@@ -264,7 +266,7 @@ RAG is NOT used on the lyrics. That would be lip-syncing — a fake demo. RAG en
 | Old file | Decision | Reason |
 |----------|----------|--------|
 | `app/mj-audio-worklet.js` | Keep as-is | Produces PCM16 at 16kHz mono — exactly what AssemblyAI requires |
-| PCM16 → WAV wrapping logic in `mj-events.js` | Move to CPI iFlow 2 | Same logic, different home |
+| PCM16 → WAV wrapping logic in `mj-events.js` | Move to CPI iFlow 1 | Same logic, different home |
 | Producer audio tap + EQ capture | Adapt | Change destination from POST /mj/audio-debug to Solace publish |
 | `New Plan/mj-concert-visualizer.html` | Keep as-is — Act 1 UI | Finished, do not redesign |
 | `New Plan/mj-ai-vision-demo.html` | Keep as-is — Act 2 UI | Finished, do not redesign |
@@ -312,7 +314,7 @@ One demo. One blog post with sections. Not eight separate posts.
 |-------|----------------|--------------|
 | 0 | Solace + CPI + CAP + HANA trial setup, test one event end to end | The Foundation |
 | 1 | Audio capture → Node.js bridge → Solace → consumer EQ visualizer reacts | The Signal & Stage |
-| 2 | CPI iFlow 2 → AssemblyAI → LangChain Perception + Classification | The Brain |
+| 2 | CPI iFlow 1 → AssemblyAI → LangChain Perception + Classification | The Brain |
 | 3 | HANA Vector embeddings + LangChain RAG retrieval | The Memory |
 | 4 | LangChain Temporal Memory + Relational Reasoning across acts | The Reasoning |
 | 5 | Consumer screen subscribes, four acts reveal cinematically, chronicle builds | The Chronicle |
