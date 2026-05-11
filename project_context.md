@@ -51,7 +51,7 @@ The AI generates its full reflection in its own words — a synthesis of all fou
 
 ## The Experience
 
-A 4-5 minute real-time AI cognitive pipeline demo. One audio file. Four songs. Four emotional acts. Two screens. AI witnessing humanity's journey in real time.
+A 4-5 minute real-time AI cognitive pipeline demo. One audio file. Four songs. Four emotional acts. Two URLs — producer and consumer. AI witnessing humanity's journey in real time.
 
 ```
 Act 1 — HIStory          — Wonder       — humanity dreams
@@ -329,11 +329,14 @@ The second iFlow slot is free. The Reflection Agent at the finale runs inside CA
 
 | Component | BTP Service |
 |-----------|------------|
-| HTML + audio file | HTML5 Application Repository (static, free) |
+| Producer HTML | Node.js bridge on Cloud Foundry (256MB free tier) |
+| Consumer HTML | Node.js bridge on Cloud Foundry (256MB free tier) |
+| Audio file | Bundled with producer — served by Node.js bridge |
 | Node.js bridge | Cloud Foundry (256MB free tier instance) |
 | CAP app | Cloud Foundry (256MB free tier instance) |
 | HANA + Vector Store | SAP HANA Cloud free tier |
-| Audio file | Bundled with static app (Object Store is production pattern) |
+
+The Node.js bridge serves both HTML files and holds Solace credentials. HTML5 Application Repository is the production pattern but not used here — Node.js bridge is the single trusted boundary between browser and Solace.
 
 ---
 
