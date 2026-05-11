@@ -1,87 +1,415 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>MJ Live — Consumer</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a0a; color: #fff; font-family: monospace; overflow: hidden; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MJ — Concert Visualizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300&display=swap');
 
-    #header { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid #1a1a1a; }
-    #header h1 { font-size: 0.9rem; letter-spacing: 0.2em; color: #555; }
-    #conn-status { font-size: 0.75rem; }
-    .ok { color: #4caf50; }
-    .err { color: #f44336; }
-    .warn { color: #ff9800; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    #visualizer { width: 100vw; height: calc(100vh - 44px); display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding: 24px; }
-    .bar { flex: 1; max-width: 32px; background: #c9a84c; border-radius: 2px 2px 0 0; transition: height 0.05s ease-out; min-height: 2px; }
-  </style>
+  body {
+    background: #000;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    font-family: 'Bebas Neue', sans-serif;
+    cursor: none;
+  }
+
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  #title {
+    font-size: clamp(48px, 10vw, 120px);
+    letter-spacing: 12px;
+    color: #fff;
+    opacity: 0.08;
+    text-align: center;
+    line-height: 1;
+    transition: opacity 1s ease;
+  }
+
+  #title.playing { opacity: 0.04; }
+
+  #subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(12px, 2vw, 18px);
+    letter-spacing: 6px;
+    color: #c9a84c;
+    opacity: 0.4;
+    margin-top: 12px;
+    transition: opacity 1s ease;
+  }
+
+  #subtitle.playing { opacity: 0.15; }
+
+  #ws-status {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 40;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #ff9800;
+    opacity: 0.7;
+  }
+
+  #ws-status.ok { color: #4caf50; }
+  #ws-status.err { color: #f44336; }
+
+  #transcript-panel {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    width: 70vw;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  #transcript-partial {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(14px, 2vw, 22px);
+    color: rgba(201,168,76,0.5);
+    letter-spacing: 3px;
+    min-height: 1.5em;
+    transition: opacity 0.3s ease;
+  }
+
+  #transcript-final {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(18px, 3vw, 36px);
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 6px;
+    min-height: 1.5em;
+    margin-bottom: 8px;
+    transition: opacity 0.5s ease;
+  }
+
+  #progress-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: #c9a84c;
+    width: 0%;
+    z-index: 30;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 8px #c9a84c;
+  }
+
+  #spotlight {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 5;
+    transform: translate(-50%, -50%);
+    transition: left 0.1s ease, top 0.1s ease;
+  }
+</style>
 </head>
 <body>
-  <div id="header">
-    <h1>MJ LIVE — CONSUMER</h1>
-    <span id="conn-status" class="warn">connecting...</span>
-  </div>
-  <div id="visualizer"></div>
 
-  <script>
-    const BRIDGE_WS = 'ws://localhost:3001';
-    const EQ_BARS = 32;
+<canvas id="c"></canvas>
+<div id="spotlight"></div>
 
-    // --- Build bars ---
-    const viz = document.getElementById('visualizer');
-    const bars = [];
-    for (let i = 0; i < EQ_BARS; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      bar.style.height = '2px';
-      viz.appendChild(bar);
-      bars.push(bar);
-    }
+<div id="overlay">
+  <div id="title">BILLIE JEAN</div>
+  <div id="subtitle">Michael Jackson — Thriller</div>
+</div>
 
-    const vizHeight = () => window.innerHeight - 44 - 48;
+<div id="ws-status">connecting...</div>
 
-    function renderBars(data) {
-      const h = vizHeight();
-      data.forEach((v, i) => {
-        if (bars[i]) bars[i].style.height = Math.max(2, (v / 255) * h) + 'px';
-      });
-    }
+<div id="transcript-panel">
+  <div id="transcript-final"></div>
+  <div id="transcript-partial"></div>
+</div>
 
-    // --- WebSocket ---
-    const statusEl = document.getElementById('conn-status');
+<div id="progress-bar"></div>
 
-    function connect() {
-      const ws = new WebSocket(BRIDGE_WS);
+<script>
+const BRIDGE_WS = 'ws://localhost:3001';
+const FREQ_BINS = 128;
 
-      ws.onopen = () => {
-        statusEl.textContent = 'connected';
-        statusEl.className = 'ok';
-      };
+const canvas = document.getElementById('c');
+const c = canvas.getContext('2d');
 
-      ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data);
-          if (msg.topic === 'audio/equalizer' && msg.data && msg.data.bars) {
-            renderBars(msg.data.bars);
-          }
-        } catch (err) {}
-      };
+let freqData = new Uint8Array(FREQ_BINS);
+let timeData = new Uint8Array(FREQ_BINS);
+let externalData = false;
+let lastFrameTs = 0;
 
-      ws.onclose = () => {
-        statusEl.textContent = 'disconnected — reconnecting...';
-        statusEl.className = 'err';
-        setTimeout(connect, 2000);
-      };
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
 
-      ws.onerror = () => {
-        statusEl.textContent = 'error';
-        statusEl.className = 'err';
-      };
-    }
+document.addEventListener('mousemove', e => {
+  const s = document.getElementById('spotlight');
+  s.style.left = e.clientX + 'px';
+  s.style.top = e.clientY + 'px';
+});
 
-    connect();
-  </script>
+// --- Bridge WebSocket ---
+const wsStatus = document.getElementById('ws-status');
+
+function connectBridge() {
+  const ws = new WebSocket(BRIDGE_WS);
+
+  ws.onopen = () => {
+    wsStatus.textContent = 'live';
+    wsStatus.className = 'ok';
+    document.getElementById('title').classList.add('playing');
+    document.getElementById('subtitle').classList.add('playing');
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.topic === 'audio/equalizer' && msg.data && msg.data.bars) {
+        const bars = msg.data.bars;
+        // Upsample 32 bars → FREQ_BINS by repeating each bar 4×
+        const step = FREQ_BINS / bars.length;
+        for (let i = 0; i < FREQ_BINS; i++) {
+          freqData[i] = bars[Math.floor(i / step)] || 0;
+        }
+        // Synthesise a flat waveform from energy for visual continuity
+        const avg = bars.reduce((a, b) => a + b, 0) / bars.length;
+        for (let i = 0; i < FREQ_BINS; i++) {
+          timeData[i] = 128 + Math.round((Math.random() - 0.5) * avg * 0.4);
+        }
+        externalData = true;
+        lastFrameTs = Date.now();
+
+        // Update progress bar if timestamp present
+        if (msg.data.ts != null && msg.data.duration) {
+          const pct = Math.min(msg.data.ts / msg.data.duration * 100, 100);
+          document.getElementById('progress-bar').style.width = pct + '%';
+        }
+      } else if (msg.topic === 'chronicle/transcript' && msg.data) {
+        const { text, isFinal } = msg.data;
+        if (isFinal) {
+          document.getElementById('transcript-final').textContent = text;
+          document.getElementById('transcript-partial').textContent = '';
+        } else {
+          document.getElementById('transcript-partial').textContent = text;
+        }
+      }
+    } catch (_) {}
+  };
+
+  ws.onclose = () => {
+    wsStatus.textContent = 'reconnecting...';
+    wsStatus.className = 'err';
+    externalData = false;
+    setTimeout(connectBridge, 2000);
+  };
+
+  ws.onerror = () => {
+    wsStatus.textContent = 'error';
+    wsStatus.className = 'err';
+  };
+}
+
+connectBridge();
+
+// ============ VISUALIZER ============
+
+let hue = 0;
+let prevEnergy = 0;
+let beatPulse = 0;
+const particles = [];
+const PARTICLE_COUNT = 180;
+
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  particles.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: (Math.random() - 0.5) * 0.5,
+    size: Math.random() * 2 + 0.5,
+    hue: Math.random() * 40 + 20,
+  });
+}
+
+function getEnergy(data, lo, hi) {
+  let sum = 0;
+  for (let i = lo; i < hi; i++) sum += data[i];
+  return sum / (hi - lo) / 255;
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  const w = canvas.width, h = canvas.height;
+
+  // If no external data for >1s, treat as idle
+  const idle = !externalData || (Date.now() - lastFrameTs > 1000);
+
+  if (idle) {
+    c.fillStyle = 'rgba(0,0,0,0.15)';
+    c.fillRect(0, 0, w, h);
+    drawIdleParticles(w, h);
+    return;
+  }
+
+  const bass = getEnergy(freqData, 0, 10);
+  const mid  = getEnergy(freqData, 10, 80);
+  const high = getEnergy(freqData, 80, FREQ_BINS);
+  const energy = bass * 0.6 + mid * 0.3 + high * 0.1;
+
+  const isBeat = energy > prevEnergy * 1.3 && energy > 0.15;
+  if (isBeat) beatPulse = 1;
+  beatPulse *= 0.92;
+  prevEnergy = energy * 0.8 + prevEnergy * 0.2;
+
+  c.fillStyle = `rgba(0,0,0,${0.25 + bass * 0.1})`;
+  c.fillRect(0, 0, w, h);
+
+  // ---- FLOOR REFLECTION ----
+  const floorY = h * 0.72;
+  const barCount = FREQ_BINS;
+  const barW = w / barCount;
+
+  for (let i = 0; i < barCount; i++) {
+    const val = freqData[i] / 255;
+    const barH = val * h * 0.45;
+    const x = i * barW;
+    const hueShift = (i / barCount) * 60 + hue;
+    const sat = 60 + val * 40;
+    const lit = 30 + val * 40;
+
+    const grad = c.createLinearGradient(x, floorY, x, floorY - barH);
+    grad.addColorStop(0, `hsla(${hueShift}, ${sat}%, ${lit}%, 0.9)`);
+    grad.addColorStop(0.6, `hsla(${hueShift + 20}, ${sat}%, ${lit + 20}%, 0.6)`);
+    grad.addColorStop(1, `hsla(${hueShift + 40}, 100%, 85%, 0.0)`);
+    c.fillStyle = grad;
+    c.fillRect(x, floorY - barH, barW - 1, barH);
+
+    const reflGrad = c.createLinearGradient(x, floorY, x, floorY + barH * 0.4);
+    reflGrad.addColorStop(0, `hsla(${hueShift}, ${sat}%, ${lit}%, 0.3)`);
+    reflGrad.addColorStop(1, `hsla(${hueShift}, ${sat}%, ${lit}%, 0)`);
+    c.fillStyle = reflGrad;
+    c.fillRect(x, floorY, barW - 1, barH * 0.4);
+  }
+
+  c.strokeStyle = `rgba(201,168,76,${0.1 + bass * 0.3})`;
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(0, floorY);
+  c.lineTo(w, floorY);
+  c.stroke();
+
+  // ---- WAVEFORM ----
+  c.beginPath();
+  c.lineWidth = 1.5;
+  c.strokeStyle = `rgba(255,255,255,${0.08 + mid * 0.15})`;
+  for (let i = 0; i < timeData.length; i++) {
+    const x = (i / timeData.length) * w;
+    const y = floorY - 60 + ((timeData[i] / 128) - 1) * 40;
+    i === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+  }
+  c.stroke();
+
+  // ---- SPOTLIGHT BEAMS ----
+  for (let b = 0; b < 6; b++) {
+    const angle = (b / 6) * Math.PI + Math.sin(Date.now() * 0.0003 + b) * 0.3;
+    const intensity = (freqData[b * 15] / 255) * 0.12 + 0.02;
+    const bx = w * 0.1 + (b / 6) * w * 0.8;
+
+    c.save();
+    c.translate(bx, 0);
+    c.rotate(angle - Math.PI / 2);
+    const beamGrad = c.createLinearGradient(0, 0, 0, h * 0.8);
+    beamGrad.addColorStop(0, `rgba(255,240,180,${intensity * 2})`);
+    beamGrad.addColorStop(0.3, `rgba(255,240,180,${intensity})`);
+    beamGrad.addColorStop(1, `rgba(255,240,180,0)`);
+    c.fillStyle = beamGrad;
+    c.beginPath();
+    c.moveTo(0, 0);
+    c.lineTo(-20 - bass * 40, h * 0.8);
+    c.lineTo(20 + bass * 40, h * 0.8);
+    c.closePath();
+    c.fill();
+    c.restore();
+  }
+
+  // ---- BEAT PULSE RING ----
+  if (beatPulse > 0.1) {
+    c.beginPath();
+    c.arc(w / 2, floorY, beatPulse * w * 0.4, 0, Math.PI * 2);
+    c.strokeStyle = `rgba(201,168,76,${beatPulse * 0.4})`;
+    c.lineWidth = beatPulse * 3;
+    c.stroke();
+  }
+
+  // ---- PARTICLES ----
+  for (const p of particles) {
+    p.x += p.vx * (1 + energy * 3);
+    p.y += p.vy * (1 + energy * 3);
+    if (p.x < 0) p.x = w;
+    if (p.x > w) p.x = 0;
+    if (p.y < 0) p.y = h;
+    if (p.y > h) p.y = 0;
+    const brightness = 40 + energy * 60;
+    c.beginPath();
+    c.arc(p.x, p.y, p.size * (1 + bass * 2), 0, Math.PI * 2);
+    c.fillStyle = `hsla(${p.hue + hue},80%,${brightness}%,${0.3 + energy * 0.5})`;
+    c.fill();
+  }
+
+  // ---- CENTER GLOW ----
+  const glowR = 80 + energy * 200 + beatPulse * 150;
+  const glow = c.createRadialGradient(w/2, floorY, 0, w/2, floorY, glowR);
+  glow.addColorStop(0, `rgba(201,168,76,${0.08 + energy * 0.15})`);
+  glow.addColorStop(1, 'rgba(201,168,76,0)');
+  c.fillStyle = glow;
+  c.fillRect(0, 0, w, h);
+
+  hue = (hue + 0.08) % 360;
+}
+
+function drawIdleParticles(w, h) {
+  hue = (hue + 0.05) % 360;
+  for (const p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 0) p.x = w;
+    if (p.x > w) p.x = 0;
+    if (p.y < 0) p.y = h;
+    if (p.y > h) p.y = 0;
+    c.beginPath();
+    c.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    c.fillStyle = `hsla(${p.hue + hue},60%,50%,0.15)`;
+    c.fill();
+  }
+}
+
+draw();
+</script>
 </body>
 </html>

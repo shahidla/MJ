@@ -21,6 +21,8 @@
     #status { font-size: 0.8rem; color: #555; }
     .ok { color: #4caf50; }
     .err { color: #f44336; }
+
+    #pcm-status { font-size: 0.75rem; color: #555; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -37,21 +39,24 @@
   </div>
 
   <div id="status">Bridge: <span id="bridge-status">connecting...</span></div>
+  <div id="pcm-status">PCM16: <span id="pcm-indicator">idle</span></div>
 
-  <audio id="audio" src="/audio-file" preload="auto"></audio>
+  <audio id="audio" src="/audio-file" preload="auto" crossorigin="anonymous"></audio>
 
   <script>
     const BRIDGE = 'http://localhost:3001';
     const EQ_BARS = 32;
-    let audioCtx, analyser, source;
+    let audioCtx, analyser, source, workletNode;
     let playing = false;
     let rafId = null;
+    let pcmChunksSent = 0;
 
     const audio = document.getElementById('audio');
     const playBtn = document.getElementById('play-btn');
     const stopBtn = document.getElementById('stop-btn');
     const seekEl = document.getElementById('seek');
     const timeEl = document.getElementById('time');
+    const pcmEl = document.getElementById('pcm-indicator');
 
     // --- Bridge status ---
     async function checkBridge() {
@@ -90,6 +95,7 @@
       playBtn.textContent = 'PLAY';
       stopBtn.disabled = true;
       cancelAnimationFrame(rafId);
+      pcmEl.textContent = 'idle';
     });
 
     // --- Seek ---
@@ -102,22 +108,55 @@
       timeEl.textContent = `${fmt(seekEl.value)} / ${fmt(audio.duration)}`;
     });
 
+    // --- Audio context setup ---
+    async function setupAudio() {
+      if (audioCtx) return;
+
+      audioCtx = new AudioContext({ sampleRate: 16000 });
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = EQ_BARS * 2;
+
+      // Load worklet
+      await audioCtx.audioWorklet.addModule('/worklet');
+      workletNode = new AudioWorkletNode(audioCtx, 'mj-pcm-logger-worklet');
+
+      const mediaSource = audioCtx.createMediaElementSource(audio);
+
+      // Chain: audio → worklet (PCM16 tap) → analyser (EQ tap) → speakers
+      mediaSource.connect(workletNode);
+      workletNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      // PCM16 chunks arrive here — 1 second each at 16kHz
+      workletNode.port.onmessage = (event) => {
+        if (!playing) return;
+        const pcm16 = event.data; // Int16Array
+        sendPcm(pcm16.buffer);
+      };
+    }
+
+    // --- Send PCM16 to bridge ---
+    function sendPcm(arrayBuffer) {
+      pcmChunksSent++;
+      pcmEl.textContent = `sending — ${pcmChunksSent} chunks`;
+
+      fetch(`${BRIDGE}/audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: arrayBuffer
+      }).catch(() => {});
+    }
+
     // --- Play / Pause ---
     playBtn.addEventListener('click', async () => {
-      if (!audioCtx) {
-        audioCtx = new AudioContext();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = EQ_BARS * 2;
-        source = audioCtx.createMediaElementSource(audio);
-        source.connect(analyser);
-        analyser.connect(audioCtx.destination);
-      }
+      await setupAudio();
 
       if (playing) {
         audio.pause();
         playing = false;
         playBtn.textContent = 'PLAY';
         cancelAnimationFrame(rafId);
+        pcmEl.textContent = 'paused';
       } else {
         await audioCtx.resume();
         await audio.play();
@@ -137,6 +176,8 @@
       playBtn.textContent = 'PLAY';
       stopBtn.disabled = true;
       cancelAnimationFrame(rafId);
+      pcmChunksSent = 0;
+      pcmEl.textContent = 'idle';
     });
 
     // --- EQ frames ---

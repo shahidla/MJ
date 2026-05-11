@@ -329,14 +329,19 @@ The second iFlow slot is free. The Reflection Agent at the finale runs inside CA
 
 ## Hosting
 
-| Component | BTP Service |
-|-----------|------------|
-| Producer HTML + Consumer HTML + Audio file | Node.js bridge — Cloud Foundry (256MB free tier) |
-| Node.js bridge | Cloud Foundry (256MB free tier instance) |
-| CAP app | Cloud Foundry (256MB free tier instance) |
-| HANA + Vector Store | SAP HANA Cloud free tier |
+| Component | Where | Why |
+|-----------|-------|-----|
+| Node.js bridge | BTP Cloud Foundry — `mj-live-bridge` app | Serves producer.html, consumer.html, audio file. Holds Solace credentials. Single trusted boundary. |
+| CAP app | BTP Cloud Foundry — `mj-live-cap` app | AI pipeline, RAG, HANA persistence, OData |
+| HANA + Vector Store | SAP HANA Cloud free tier | Native BTP, no external vector DB |
+| CPI iFlow 1 | SAP BTP Integration Suite | PCM16 → AssemblyAI → CAP |
+| Solace broker | Solace Cloud free tier | Advanced Event Mesh — `mj-live` VPN |
 
-The Node.js bridge serves both HTML files, the audio file, and holds all Solace credentials. It injects credentials into the consumer page at serve time — the consumer browser never holds credentials directly. The bridge is the single trusted boundary between browser and Solace for both producer and consumer.
+**Decision locked: bridge deploys to BTP CF alongside CAP.**
+- Everything is one BTP account — one URL to share, one login, one platform story
+- Free tier: two CF app instances (256MB each) — bridge + CAP fits exactly
+- `cf push` from `bridge/` with `manifest.yml` — same deploy workflow as CAP
+- Browser never holds Solace credentials — bridge injects them at serve time
 
 ---
 
@@ -345,6 +350,71 @@ The Node.js bridge serves both HTML files, the audio file, and holds all Solace 
 Document as you build. Not after.
 For every decision: what you chose, what you considered and rejected, why.
 That record is the difference between a developer who built something and an architect who designed it.
+
+---
+
+## Current Build State (last updated: 2026-05-11)
+
+### Phase 1 — COMPLETE
+### Phase 2a — COMPLETE
+
+| What | File | Status |
+|------|------|--------|
+| Node.js bridge — dual transport | `bridge/index.js` | Done |
+| Producer HTML — play/pause/stop/seek, EQ POST | `bridge/producer.html` | Done |
+| AudioWorklet PCM16 capture wired into producer | `bridge/producer.html` | Done |
+| Bridge POST /audio handler | `bridge/index.js` | Done |
+| AssemblyAI streaming — TEMPORARY direct integration | `bridge/assemblyai.js` | Done — delete when CPI iFlow 1 built |
+| Consumer HTML — concert WebGL visualizer + live lyrics transcript panel | `bridge/consumer.html` | Done |
+| Local mock transport (EventEmitter + ws) | `bridge/index.js` | Working |
+| Solace transport (solclientjs) | `bridge/index.js` | Code complete, blocked by corporate DNS |
+| BTP CF deployment config | `bridge/manifest.yml` | Created |
+| Codebase cleanup | all | Done — deleted all v1 prototype files |
+
+**Three live URLs (bridge running locally):**
+- `http://localhost:3001/producer` — audio player, pushes EQ + PCM16 to bridge
+- `http://localhost:3001/consumer` — concert visualizer + live lyrics transcript panel
+- `http://localhost:3001/status` — health check
+
+**Start bridge:**
+```bash
+cd bridge
+npm install
+node index.js
+```
+
+**`.env` file (not in repo — create manually in repo root):**
+```
+SOLACE_URL=wss://mr-connection-rcgt0ju559a.messaging.solace.cloud:443
+SOLACE_VPN=mj-live
+SOLACE_USERNAME=solace-cloud-client
+SOLACE_PASSWORD=lsno5kkm61fsjrvmmcbo3r0jor
+TRANSPORT=local
+ASSEMBLYAI_API_KEY=4d4d7e15faef4fafb2fdb5eccd84774f
+```
+
+**What the temporary AssemblyAI integration does:**
+- `bridge/assemblyai.js` connects directly to `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`
+- Bridge forwards PCM16 chunks from `/audio` POST to AssemblyAI
+- AssemblyAI returns partial + final transcripts
+- Bridge broadcasts transcripts to consumer via WebSocket topic `chronicle/transcript`
+- Consumer displays them live at the bottom of the screen
+- **Delete `assemblyai.js` and its wiring in `index.js` when CPI iFlow 1 is ready**
+
+### Exact Stopping Point — Where Phase 2b Begins
+
+**Blocked on corporate network — requires personal laptop or mobile hotspot.**
+
+1. **Test end-to-end** — `node index.js`, open `/producer` → Play, open `/consumer` → verify live lyrics appear. Terminal should show `AssemblyAI streaming: connected`.
+2. **Test TRANSPORT=solace** — set `TRANSPORT=solace` in `.env`, run bridge off corporate network, verify EQ + PCM16 flow through Solace.
+3. **Build CPI iFlow 1** — subscribe `audio/pcm` from Solace → wrap PCM16 to WAV → call AssemblyAI streaming → POST transcript to CAP. When done, delete `bridge/assemblyai.js`.
+4. **Build CAP service** — receive transcript, run LangChain pipeline, query HANA Vector RAG, persist to HANA, publish `chronicle/event` to Solace.
+5. **Wire consumer bottom panels** — receive `chronicle/event`, render cognitive mode + chronicle + closing reflection.
+
+### Open Questions
+- BTP CF org/space name for `cf push` — needed when deploying bridge
+- Which LLM for CAP cognitive pipeline — not yet decided (Claude via Bedrock, GPT-4o, or SAP AI Core)
+- HANA Vector knowledge base content — MJ history, song meanings, HIStory dates
 
 ---
 

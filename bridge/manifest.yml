@@ -1,0 +1,16 @@
+applications:
+  - name: mj-live-bridge
+    memory: 256M
+    instances: 1
+    path: .
+    buildpacks:
+      - nodejs_buildpack
+    command: node index.js
+    env:
+      TRANSPORT: solace
+      NODE_ENV: production
+    # Solace credentials — set via cf set-env, never committed
+    # cf set-env mj-live-bridge SOLACE_URL wss://...
+    # cf set-env mj-live-bridge SOLACE_VPN mj-live
+    # cf set-env mj-live-bridge SOLACE_USERNAME solace-cloud-client
+    # cf set-env mj-live-bridge SOLACE_PASSWORD ...

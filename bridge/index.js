@@ -3,8 +3,10 @@ const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const EventEmitter = require('events');
-
 const path = require('path');
+
+// Temporary direct AssemblyAI integration — replaced by CPI iFlow 1 later
+const assemblyai = require('./assemblyai');
 
 const app = express();
 const server = http.createServer(app);
@@ -72,10 +74,18 @@ wss.on('connection', (ws) => {
     }
   };
 
+  const onTranscript = (payload) => {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify({ topic: 'chronicle/transcript', data: payload }));
+    }
+  };
+
   bus.on('audio/equalizer', onEq);
+  bus.on('chronicle/transcript', onTranscript);
 
   ws.on('close', () => {
     bus.off('audio/equalizer', onEq);
+    bus.off('chronicle/transcript', onTranscript);
     console.log('Consumer disconnected, total:', wss.clients.size);
   });
 });
@@ -85,6 +95,7 @@ wss.on('connection', (ws) => {
 app.get('/producer', (req, res) => res.sendFile(path.join(__dirname, 'producer.html')));
 app.get('/consumer', (req, res) => res.sendFile(path.join(__dirname, 'consumer.html')));
 app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, '../app/media/billie-jean.mp3')));
+app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, '../app/mj-audio-worklet.js')));
 
 app.post('/eq', express.json(), (req, res) => {
   publish('audio/equalizer', req.body);
@@ -92,7 +103,18 @@ app.post('/eq', express.json(), (req, res) => {
 });
 
 app.post('/audio', express.raw({ type: 'application/octet-stream', limit: '2mb' }), (req, res) => {
-  // Phase 2 — PCM pipeline
+  if (TRANSPORT === 'solace') {
+    if (!solaceConnected) { console.warn('Solace not connected, dropping PCM chunk'); res.status(204).end(); return; }
+    const solace = require('solclientjs');
+    const msg = solace.SolclientFactory.createMessage();
+    msg.setDestination(solace.SolclientFactory.createTopicDestination('audio/pcm'));
+    msg.setBinaryAttachment(req.body);
+    msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
+    solaceSession.send(msg);
+  } else {
+    // Temp: send directly to AssemblyAI — replaced by CPI when ready
+    assemblyai.sendPcm(req.body);
+  }
   res.status(204).end();
 });
 
@@ -108,8 +130,16 @@ app.get('/status', (req, res) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Bridge running on port ${PORT}`);
-  console.log(`Status: http://localhost:${PORT}/status`);
+  console.log(`Status:   http://localhost:${PORT}/status`);
+  console.log(`Producer: http://localhost:${PORT}/producer`);
+  console.log(`Consumer: http://localhost:${PORT}/consumer`);
   if (TRANSPORT === 'solace') {
     solaceSession = connectSolace();
+  } else {
+    // Temp: connect AssemblyAI directly until CPI iFlow 1 is ready
+    assemblyai.connect((text, isFinal) => {
+      console.log(`Transcript [${isFinal ? 'final' : 'partial'}]: ${text}`);
+      bus.emit('chronicle/transcript', { text, isFinal });
+    });
   }
 });
