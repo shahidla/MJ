@@ -267,9 +267,9 @@ The `chronicle/event` Solace payload carries an act directive. When the first Ac
         ↓
 [Solace Advanced Event Mesh]
   topic: audio/equalizer  ──────────────────────────→ [Consumer Screen]
-  topic: audio/pcm  ──→ [CPI iFlow 2]                  WebGL visualizer
-  topic: chronicle/event ←──────────────────────────── reacts to EQ
-                                ↓
+  topic: audio/pcm  ──→ [CPI iFlow 1]                  WebGL visualizer
+  topic: chronicle/event ←──────────────────────────── reacts to EQ directly
+                                ↓                       no CPI involved
                     AssemblyAI streaming API
                     sub-300ms transcript
                                 ↓
@@ -383,11 +383,14 @@ One demo. One blog post with sections. Not eight separate posts.
 
 ## CPI Free Tier Constraint
 
-Free tier = 2 active iFlows maximum. Both slots are used:
-- iFlow 1: EQ frames → Screen 1
-- iFlow 2: PCM16 → AssemblyAI → CAP
+Free tier = 2 active iFlows maximum.
 
-The reflection agent at t=60s cannot be a third iFlow. It runs inside CAP — CAP triggers the LLM call directly when the chronicle is complete. This is the correct separation anyway — reflection is business logic, not integration.
+Only one iFlow is needed:
+- iFlow 1: PCM16 → AssemblyAI → CAP (the only external AI call)
+
+EQ frames do not go through CPI — they flow directly from Solace to the consumer. No AI, no external API, no governance needed.
+
+The second iFlow slot is free. The Reflection Agent at the finale runs inside CAP directly — reflection is business logic, not integration, so it never needed a CPI slot.
 
 ---
 
