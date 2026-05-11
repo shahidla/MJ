@@ -262,6 +262,8 @@ RAG is NOT used on the lyrics. That would be lip-syncing — a fake demo. RAG en
 | `New Plan/mj-concert-visualizer.html` | Merge into consumer HTML — top section | Visual design stays, wire to Solace |
 | `New Plan/mj-ai-vision-demo.html` | Merge into consumer HTML — bottom sections | Visual design stays, wire to Solace |
 
+---
+
 ## What Is Dropped
 
 | Old component | Why dropped |
@@ -329,14 +331,12 @@ The second iFlow slot is free. The Reflection Agent at the finale runs inside CA
 
 | Component | BTP Service |
 |-----------|------------|
-| Producer HTML | Node.js bridge on Cloud Foundry (256MB free tier) |
-| Consumer HTML | Node.js bridge on Cloud Foundry (256MB free tier) |
-| Audio file | Bundled with producer — served by Node.js bridge |
+| Producer HTML + Consumer HTML + Audio file | Node.js bridge — Cloud Foundry (256MB free tier) |
 | Node.js bridge | Cloud Foundry (256MB free tier instance) |
 | CAP app | Cloud Foundry (256MB free tier instance) |
 | HANA + Vector Store | SAP HANA Cloud free tier |
 
-The Node.js bridge serves both HTML files and holds Solace credentials. HTML5 Application Repository is the production pattern but not used here — Node.js bridge is the single trusted boundary between browser and Solace.
+The Node.js bridge serves both HTML files, the audio file, and holds all Solace credentials. It injects credentials into the consumer page at serve time — the consumer browser never holds credentials directly. The bridge is the single trusted boundary between browser and Solace for both producer and consumer.
 
 ---
 
