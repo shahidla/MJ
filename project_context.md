@@ -14,95 +14,20 @@ originSessionId: 19006e94-b907-4548-8353-1288b951cab7
 
 ---
 
-## What It Does
-
-A real-time audio transcription and visualization demo themed around Michael Jackson's "Billie Jean." The user plays the song in a browser; the audio is analyzed, transcribed by OpenAI AI, and visualized on a separate consumer screen in sync.
-
 ---
 
-## Architecture: Producer → CAP Server → Consumer
+## Old Code — Reference Only
 
-### Producer (`app/media/mj_producer.html`)
-- Plays `billie-jean.mp3` in the browser
-- Uses Web Audio API + AudioWorklet (`app/mj-audio-worklet.js`) to capture raw PCM16 audio at 16kHz mono
-- Draws a local equalizer bar chart using Web Audio frequency analysis
-- Sends two streams to the CAP backend every animation frame:
-  - **Equalizer frames** (bar values + song timestamp) → `POST /mj/eq-debug`
-  - **Raw PCM audio chunks** (~1 second each) → `POST /mj/audio-debug`
+The original v1 code (SSE, OpenAI Whisper, D3 hardcoded years, Billie Jean only) is in the repo for reference. Do not build from it. Key files for reference:
 
-### CAP Backend Server
-- **`server.js`**: Receives equalizer frames, stores the latest, re-streams via SSE on `GET /mj/eq-stream` (polls every 200ms)
-- **`srv/mj-events.js`**: 
-  - Buffers incoming PCM audio until ~3 seconds accumulate
-  - Wraps PCM in a WAV header and calls **OpenAI Whisper** (`gpt-4o-transcribe`) for speech-to-text
-  - Broadcasts transcript as `{ type: "MJTranscript", text }` to all SSE clients on `GET /mj/stream`
-  - Also exposes `POST /mj/notify` (manual push) and `GET /mj/notify-test` (test endpoint)
-- **`srv/mj-realtime.js`**:
-  - Opens a persistent WebSocket to **OpenAI Realtime API** (`gpt-4o-realtime-preview`)
-  - Streams PCM audio and requests text-only transcription responses
-  - Manages a single shared session with listener pattern
-  - *Note: This module exists but is not yet wired into any HTTP route — it's ready but unused*
-- **`config/openai.js`**: Reads `OPENAI_API_KEY` from env; points to realtime WS URL
-
-### Consumer (`app/media/mj_consumer.html`)
-- Connects to `GET /mj/eq-stream` via SSE
-- Mirrors the equalizer from the producer (same bar data, same color logic)
-- Shows a **D3.js lollipop timeline** — reveals historical years (hardcoded list of 15) as the song plays, one every 3 seconds, positioned on a scale axis
-
-### Database (`db/schema.cds`)
-- HANA table `MJ_HISTORY_EVENTS` (and view `MJ_HISTORY_EVENTS_V`)
-- Schema: `EVENT_ID`, `SONG_NAME`, `LYRIC_TIME_SEC`, `LYRIC_TEXT`, `DATE_TEXT`, `EVENT_DATE`, `CREATED_AT`
-- **Purpose:** Store lyric lines matched to song timestamps + historical dates/events
-- **`srv/cat-service.js`**: Exposes `MJHistoryEvents` via OData — handler is a stub, no logic yet
-- **Status: DB schema is defined but not yet connected to the live demo**
-
----
-
-## Current State (as of 2026-05-10)
-
-| Component | Status |
-|-----------|--------|
-| Producer audio tap + equalizer | Working |
-| Equalizer SSE to consumer | Working |
-| OpenAI Whisper STT pipeline | Working (3s buffer → WAV → transcribe → SSE) |
-| Consumer equalizer + D3 timeline | Working (hardcoded years) |
-| OpenAI Realtime API module | Built, not wired up |
-| MJHistoryEvents DB table | Schema defined, not populated |
-| Lyric→history event matching | Not built |
-| Consumer showing transcripts | Not built (SSE stream exists, no UI for it) |
-
----
-
-## What's Next / Planned
-
-A `New Plan` folder exists in the repo root — not yet read. Likely contains the next phase design.
-
-**Obvious gaps to fill based on current code:**
-1. **Wire up Realtime API** — replace the Whisper batch approach with the existing `mj-realtime.js` module for lower-latency transcription
-2. **Connect transcript to DB** — match incoming lyric text to `MJHistoryEvents` rows by `LYRIC_TEXT` or fuzzy match, return the historical event
-3. **Consumer transcript UI** — display incoming `MJTranscript` SSE events on the consumer screen
-4. **D3 timeline from DB** — replace hardcoded years with real `EVENT_DATE` values from `MJHistoryEvents` loaded via the CAP OData service
-5. **Populate HANA table** — seed `MJ_HISTORY_EVENTS` with Billie Jean lyric timestamps and corresponding historical dates
-
----
-
-## Key Files Quick Reference
-
-| File | Purpose |
-|------|---------|
-| `server.js` | EQ frame ingestion + SSE stream |
-| `srv/mj-events.js` | Audio ingestion, Whisper STT, SSE broadcast |
-| `srv/mj-realtime.js` | OpenAI Realtime WS session manager (unused) |
-| `srv/cat-service.js` | OData service stub for MJHistoryEvents |
-| `srv/mj-events.cds` | Dummy CDS service (placeholder) |
-| `srv/cat-service.cds` | Exposes MJHistoryEvents entity |
-| `db/schema.cds` | HANA table definitions |
-| `app/media/mj_producer.html` | Browser audio producer |
-| `app/media/mj_consumer.html` | Browser consumer (EQ + D3 timeline) |
-| `app/mj-audio-worklet.js` | AudioWorklet: float→PCM16 conversion + buffering |
-| `config/openai.js` | OpenAI API key + realtime URL config |
-
-**Why:** This is a demo project for the user's AI engineering portfolio, showcasing real-time audio + AI integration on SAP CAP infrastructure.
+| File | What it had |
+|------|------------|
+| `app/mj-audio-worklet.js` | **Keep** — PCM16 capture, carries forward as-is |
+| `srv/mj-events.js` | pcm16ToWav() logic moves to CPI iFlow 1 |
+| `srv/mj-realtime.js` | Dropped — AssemblyAI replaces OpenAI Realtime |
+| `server.js` | Dropped — SSE replaced by Solace |
+| `app/media/mj_producer.html` | Replace — new producer is minimal, no EQ visualizer |
+| `app/media/mj_consumer.html` | Replace — new consumer is the three-section layout |
 
 ---
 
@@ -147,6 +72,21 @@ One audio file, edited: one section from each song, continuous playback. No gaps
 
 ### Full Version (blog / YouTube)
 - Each act 60-90 seconds. Crossfades: Act1→2: 2s abrupt. Act2→3: 1s sharp. Act3→4: 3s slow.
+
+---
+
+## Between-Act AI Sentences
+
+After each act, as the music crossfades, the Reflection Agent generates one sentence from what it just witnessed. Not scripted. Generated live from LangChain memory of that act.
+
+| Transition | AI tone | What it just witnessed |
+|------------|---------|----------------------|
+| After Act 1 | Awe, a question forming | Human potential — Edison, MLK, moon landing, Berlin Wall |
+| After Act 2 | Confusion, not accusation | The same humanity producing racism, brutality, invisibility |
+| After Act 3 | Grief, quiet | The planet wounded — species lost, wars, children |
+| After Act 4 | Still. Final. | One person choosing to change |
+
+Then silence. Then the closing reflection — the AI's full synthesis of all four acts in its own words.
 
 ---
 
