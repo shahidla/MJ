@@ -29,8 +29,6 @@ The original v1 code (SSE, OpenAI Whisper, D3 hardcoded years, Billie Jean only)
 
 ---
 
----
-
 # NEW PLAN — MJ Live (v4, Finalised: 2026-05-11)
 
 > Everything below supersedes the old approach above.
