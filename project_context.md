@@ -301,16 +301,17 @@ These are not 8 prompt calls. Each is a distinct cognitive mode. Together they f
 
 One demo. One blog post with sections. Not eight separate posts.
 
-| Phase | What Gets Built | Blog Section |
-|-------|----------------|--------------|
-| 0 | Solace + CPI + CAP + HANA trial setup, test one event end to end | The Foundation |
-| 1 | Audio capture → Node.js bridge → Solace → consumer EQ visualizer reacts | The Signal & Stage |
-| 2 | CPI iFlow 1 → AssemblyAI → LangChain Perception + Classification | The Brain |
-| 3 | HANA Vector embeddings + LangChain RAG retrieval | The Memory |
-| 4 | LangChain Temporal Memory + Relational Reasoning across acts | The Reasoning |
-| 5 | Consumer screen subscribes, four acts reveal cinematically, chronicle builds | The Chronicle |
-| 6 | Reflection Agent + Finale Agent + closing reflection generated | The Conscience |
-| 7 | Package, architecture diagram, demo video, blog publish | The Tribute |
+| Phase | What Gets Built | Status | Blog Section |
+|-------|----------------|--------|--------------|
+| 0 | Solace + CPI + CAP + HANA trial setup | COMPLETE ✅ | The Foundation |
+| 1 | Audio → bridge → Solace → consumer EQ visualiser | COMPLETE ✅ | The Signal & Stage |
+| 2a | ElevenLabs STT (direct in bridge, temporary) | COMPLETE ✅ | The Signal & Stage |
+| 2b | Solace transport live, CPI iFlow 1, Consumer chronicle/event | COMPLETE ✅ | The Brain |
+| 3 | CAP cognitive pipeline, HANA RAG knowledge base (30 events), bridge→CAP auto-POST | COMPLETE ✅ | The Memory |
+| 4 | Temporal Memory + Relational Reasoning across acts (Modes 4+5) | COMPLETE ✅ | The Reasoning |
+| 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | NEXT | The Chronicle |
+| 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | Pending | The Conscience |
+| 7 | Deploy bridge + CAP to BTP CF, architecture diagram, demo video | Pending | The Tribute |
 
 ---
 
@@ -319,7 +320,8 @@ One demo. One blog post with sections. Not eight separate posts.
 Free tier = 2 active iFlows maximum.
 
 Only one iFlow is needed:
-- iFlow 1: PCM16 → AssemblyAI → CAP (the only external AI call)
+- iFlow 1: receives transcript via HTTPS → currently calls Claude Haiku → publishes to Solace
+- Final state: iFlow 1 receives transcript → POSTs raw text to CAP (CAP owns all intelligence)
 
 EQ frames do not go through CPI — they flow directly from Solace to the consumer. No AI, no external API, no governance needed.
 
