@@ -733,7 +733,8 @@ Complete pass through all project files. Grouped by file and severity.
 **Pending deploy (batch with embeddings):** All changes below
 
 **Changes since last deploy:**
-- KB: 30 → 65 events, act+emotion columns removed (AI classifies these)
+- KB: 30 → 64 events (65 minus 1 duplicate removed), act+emotion columns removed (AI classifies these)
+- KB: full factual validation applied — 12 corrections: Treaty of Versailles date/deaths, Edison wording, 13th Amendment date, Hector Pieterson age, Desmond Tutu Nobel year (1984 not 1986), RFK quote corrected to 1966 Cape Town speech, duplicate JFK entry removed, Amazon oxygen claim corrected, Three Mile Island dramatization removed, species extinction figures qualified as estimates, homelessness unverified stat removed
 - schema.cds: country/lat/lng added to ChronicleEvents
 - mj-service.js: Claude now returns country/lat/lng per event; stored + published to Solace
 - mj-service.js: all 10 code review fixes applied (reconnect, resetSession, actNumber, keyFigures, SQL sanitise, etc.)
