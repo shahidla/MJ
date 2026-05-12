@@ -51,6 +51,8 @@ async function initElevenLabs() {
       console.log('[FINAL]', text);
       logTranscript('FINAL', text);
       onTranscriptCb && onTranscriptCb(text, true);
+      // Forward to CAP cognitive pipeline
+      forwardToCAP(text);
     });
 
     connection.on('error', (err) => {
@@ -76,6 +78,23 @@ function sendToElevenLabs(buffer) {
     connection.send({ audioBase64: buffer.toString('base64') });
   } catch (e) {
     console.error('ElevenLabs send error:', e.message);
+  }
+}
+
+// ── Forward transcript to CAP cognitive pipeline ────────────────────────────
+const CAP_URL = process.env.CAP_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript';
+
+async function forwardToCAP(text) {
+  try {
+    const res = await fetch(CAP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: text })
+    });
+    if (!res.ok) console.error('CAP forward error:', res.status);
+    else console.log('Forwarded to CAP:', text.substring(0, 60));
+  } catch (e) {
+    console.error('CAP forward error:', e.message);
   }
 }
 

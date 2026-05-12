@@ -437,9 +437,9 @@ HTTPS Sender (/mj-transcript)
 | HDI container mj-live-hdi created | SAP BTP | Done ✅ |
 | cds deploy --to hana:mj-live-hdi | HANA Cloud | Done ✅ |
 | CAP connected to HANA, ChronicleEvents persisting | HANA Cloud | Done ✅ |
-| HistoryEvents knowledge base seeded | | Next |
-| HANA Vector RAG (similarity search) | | Next |
-| Bridge → CAP auto-POST on transcript | | Next |
+| HistoryEvents knowledge base seeded (30 events) | `db/data/mj-HistoryEvents.csv` | Done ✅ |
+| HANA keyword RAG (headline + context search) | `srv/mj-service.js` | Done ✅ |
+| Bridge → CAP auto-POST on committed_transcript | `bridge/stt-all.js` | Done ✅ |
 | LangChain relational reasoning (Mode 5) | | Phase 4 |
 | CPI iFlow updated — POST raw transcript to CAP (remove Claude from CPI) | | Phase 4 |
 

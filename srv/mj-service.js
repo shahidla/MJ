@@ -48,18 +48,30 @@ function getModel() {
   });
 }
 
-// ── RAG: find closest historical event in HANA ──────────────────────────────
+// ── RAG: find closest historical events in HANA ─────────────────────────────
 async function ragRetrieve(db, transcript) {
   try {
-    // Simple keyword search for now — replace with vector similarity when HANA Vector available
-    const words = transcript.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const results = await db.run(
-      SELECT.from('mj.HistoryEvents')
-        .where(words.map(w => `lower(headline) like '%${w}%'`).join(' or '))
-        .limit(2)
-    );
+    const words = transcript.toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !['that','this','with','from','have','been','they','were','what','when','will','your','more','than','just','into','over','some','also','about'].includes(w));
+
+    if (words.length === 0) return '';
+
+    // Search headline + context for keyword matches
+    const conditions = words.map(w =>
+      `(LOWER(HEADLINE) LIKE '%${w}%' OR LOWER(CONTEXT) LIKE '%${w}%')`
+    ).join(' OR ');
+
+    const results = await db.run(`
+      SELECT TOP 2 YEAR, HEADLINE, CONTEXT, EMOTION
+      FROM "MJ_HISTORYEVENTS"
+      WHERE ${conditions}
+      ORDER BY YEAR ASC
+    `);
+
     if (results.length > 0) {
-      return results.map(r => `${r.year}: ${r.headline} — ${r.context}`).join('\n');
+      console.log(`RAG: found ${results.length} matching events`);
+      return results.map(r => `${r.YEAR}: ${r.HEADLINE} — ${r.CONTEXT}`).join('\n\n');
     }
     return '';
   } catch (e) {
