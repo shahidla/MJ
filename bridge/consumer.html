@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MJ — Concert Visualizer</title>
+<title>MJ Live — AI Witness</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300&family=Share+Tech+Mono&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -448,8 +448,8 @@
 <div id="spotlight"></div>
 
 <div id="overlay">
-  <div id="title">BILLIE JEAN</div>
-  <div id="subtitle">Michael Jackson — Thriller</div>
+  <div id="title">MJ LIVE</div>
+  <div id="subtitle">an AI witnessing humanity's journey</div>
 </div>
 
 <div id="ws-status">connecting...</div>
@@ -517,7 +517,7 @@
 
 <script src="/solace-client.js"></script>
 <script>
-const BRIDGE_WS = 'ws://localhost:3001';
+const BRIDGE_WS = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 const FREQ_BINS = 128;
 let eqFrames = 0;
 
@@ -800,8 +800,7 @@ async function bootstrap() {
   try {
     const cfg = await fetch('/solace-config').then(r => r.json());
     if (cfg.transport === 'solace') {
-      connectSolace(cfg);  // EQ direct from Solace
-      connectBridge();      // transcripts still via bridge until CAP is built
+      connectSolace(cfg);
     } else {
       connectBridge();
     }

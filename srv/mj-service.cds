@@ -8,6 +8,9 @@ service MJService {
   // Finale trigger — call when audio ends to generate closing reflection
   action generateFinale() returns String;
 
+  // Reset in-memory session state between demo runs
+  action resetSession() returns String;
+
   // Read-only access to chronicle for monitoring
   entity ChronicleEvents as projection on mj.ChronicleEvents;
   entity HistoryEvents    as projection on mj.HistoryEvents;

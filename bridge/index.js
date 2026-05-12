@@ -179,7 +179,14 @@ app.post('/chronicle-event', express.json(), (req, res) => {
 });
 
 app.get('/test-chronicle', (req, res) => {
-  const payload = { emotion: 'grief', year: '1968', event: 'Martin Luther King assassinated', insight: 'The AI witnesses humanity at its darkest moment of broken promise.' };
+  const payload = {
+    emotion: 'grief',
+    year: '1968',
+    event: 'Martin Luther King assassinated in Memphis Tennessee',
+    insight: 'The AI witnesses humanity at its darkest moment of broken promise.',
+    transcript: '1968 Martin Luther King assassinated Memphis Tennessee',
+    ragContext: '1968: Martin Luther King assassinated — April 4 1968. Martin Luther King is shot and killed on the balcony of the Lorraine Motel in Memphis Tennessee. Riots break out in 100 American cities. James Brown goes on television to calm the crowds. A prophet is silenced.'
+  };
   publish('chronicle/event', payload);
   res.json({ published: true, payload });
 });

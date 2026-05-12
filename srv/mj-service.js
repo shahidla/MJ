@@ -22,6 +22,8 @@ function initSolace() {
   });
   solaceSession.on(solace.SessionEventCode.DISCONNECTED, () => {
     solaceConnected = false;
+    console.log('CAP: Solace disconnected — reconnecting in 5s');
+    setTimeout(initSolace, 5000);
   });
   solaceSession.connect();
 }
@@ -51,7 +53,10 @@ function updateMemory(event) {
 
   // Track named figures for relational reasoning
   const figures = ['Martin Luther King', 'Rosa Parks', 'Edison', 'Neil Armstrong',
-                   'Kennedy', 'Mandela', 'Jackie Robinson', 'Gandhi'];
+                   'Kennedy', 'Mandela', 'Jackie Robinson', 'Gandhi',
+                   'Mother Teresa', 'Chico Mendes', 'Ryan White', 'Desmond Tutu',
+                   'Bob Geldof', 'Chuck Yeager', 'Emmett Till', 'Medgar Evers',
+                   'John Lewis', 'Hector Pieterson', 'Rachel Carson', 'Denis Hayes'];
   figures.forEach(fig => {
     const figLower = fig.toLowerCase();
     const matchesTranscript = event.transcript?.toLowerCase().includes(figLower);
@@ -125,6 +130,17 @@ function buildMemoryContext() {
   return lines.join('\n');
 }
 
+// ── Act number from dominant emotion ────────────────────────────────────────
+function deriveActNumber(emotion) {
+  if (!emotion) return 0;
+  const e = emotion.toLowerCase();
+  if (e.includes('wonder') || e.includes('awe') || e.includes('pride')) return 1;
+  if (e.includes('anger') || e.includes('injustice') || e.includes('defiance')) return 2;
+  if (e.includes('grief') || e.includes('sorrow') || e.includes('despair')) return 3;
+  if (e.includes('hope') || e.includes('determination') || e.includes('change')) return 4;
+  return 0;
+}
+
 // ── Claude model ────────────────────────────────────────────────────────────
 function getModel() {
   return new ChatAnthropic({
@@ -139,6 +155,7 @@ async function ragRetrieve(db, transcript) {
   try {
     const words = transcript.toLowerCase()
       .split(/\s+/)
+      .map(w => w.replace(/[^a-z0-9]/g, ''))
       .filter(w => w.length > 3 && !['that','this','with','from','have','been','they','were','what','when','will','your','more','than','just','into','over','some','also','about'].includes(w));
 
     if (words.length === 0) return '';
@@ -255,7 +272,7 @@ ${allInsights}
 
 Your emotional arc: ${sessionMemory.emotionArc.join(' → ')}
 
-${buildMemoryContext()}
+${memoryContext}
 
 Now generate your closing reflection. Write it in your own voice — as the AI that witnessed all of this. Synthesise the patterns. Find the thread that connects wonder, anger, grief, and hope across everything you heard.
 
@@ -299,7 +316,7 @@ module.exports = class MJService extends cds.ApplicationService {
         event:      result.event,
         insight:    result.insight,
         ragContext: result.ragContext,
-        actNumber:  0
+        actNumber:  deriveActNumber(result.emotion)
       };
       await INSERT.into(ChronicleEvents).entries(event);
       console.log('CAP: persisted chronicle event');
@@ -330,6 +347,15 @@ module.exports = class MJService extends cds.ApplicationService {
     });
 
     // Modes 7+8: Finale — generates closing reflection across all 4 acts
+    this.on('resetSession', async (req) => {
+      sessionMemory.events = [];
+      sessionMemory.keyFigures = {};
+      sessionMemory.emotionArc = [];
+      sessionMemory.actSummaries = {};
+      console.log('CAP: session memory reset');
+      return JSON.stringify({ reset: true, ts: new Date().toISOString() });
+    });
+
     this.on('generateFinale', async (req) => {
       if (sessionMemory.events.length < 3) {
         return JSON.stringify({ error: 'Not enough events witnessed yet' });

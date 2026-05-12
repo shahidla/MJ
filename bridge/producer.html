@@ -44,8 +44,7 @@
   <audio id="audio" src="/audio-file" preload="auto" crossorigin="anonymous"></audio>
 
   <script>
-    const BRIDGE_WS = 'ws://localhost:3001?role=producer';
-    const BRIDGE_HTTP = 'http://localhost:3001';
+    const BRIDGE_WS = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}?role=producer`;
     const EQ_BARS = 32;
     let audioCtx, analyser, source, workletNode;
     let playing = false;
