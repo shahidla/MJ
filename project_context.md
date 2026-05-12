@@ -309,8 +309,8 @@ One demo. One blog post with sections. Not eight separate posts.
 | 2b | Solace transport live, CPI iFlow 1, Consumer chronicle/event | COMPLETE ✅ | The Brain |
 | 3 | CAP cognitive pipeline, HANA RAG knowledge base (30 events), bridge→CAP auto-POST | COMPLETE ✅ | The Memory |
 | 4 | Temporal Memory + Relational Reasoning across acts (Modes 4+5) | COMPLETE ✅ | The Reasoning |
-| 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | IN PROGRESS ✅ | The Chronicle |
-| 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | Pending | The Conscience |
+| 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | COMPLETE ✅ | The Chronicle |
+| 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | NEXT | The Conscience |
 | 7 | Deploy bridge + CAP to BTP CF, architecture diagram, demo video | Pending | The Tribute |
 
 ---
@@ -444,7 +444,12 @@ HTTPS Sender (/mj-transcript)
 | Bridge → CAP auto-POST on committed_transcript | `bridge/stt-all.js` | Done ✅ |
 | Temporal Memory (Mode 4) — structured session memory across all acts | `srv/mj-service.js` | Done ✅ |
 | Relational Reasoning (Mode 5) — AI connects figures/events across acts | `srv/mj-service.js` | Done ✅ |
-| CPI iFlow updated — POST raw transcript to CAP (remove Claude from CPI) | | Phase 4 |
+| Temporal Memory (Mode 4) + Relational Reasoning (Mode 5) | `srv/mj-service.js` | Done ✅ |
+| Three-panel consumer: cognitive modes / year reveal / chronicle | `bridge/consumer.html` | Done ✅ |
+| Cognitive mode indicator animates 01→05 on each event | `bridge/consumer.html` | Done ✅ |
+| Year reveals cinematically (slide-up + gold glow) | `bridge/consumer.html` | Done ✅ |
+| Chronicle accumulates last 4 entries, emotion bars shift | `bridge/consumer.html` | Done ✅ |
+| CPI iFlow updated — POST raw transcript to CAP (remove Claude from CPI) | | Pending |
 
 **CAP endpoints (local):**
 - `http://localhost:4004/odata/v4/mj/receiveTranscript` — cognitive pipeline entry point
