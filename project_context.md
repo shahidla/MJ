@@ -729,7 +729,19 @@ Complete pass through all project files. Grouped by file and severity.
 - KB expanded: all 4 songs covered with real stats and attributed quotes
 - RAG context now visible in consumer: `heard` (raw STT) + `kb` (RAG result) per chronicle entry
 - `transcript` + `ragContext` added to Solace `chronicle/event` payload (was missing)
-- **Not yet deployed**: KB changes + consumer RAG display + mj-service.js payload fix — batch with embeddings tomorrow
+- **Deployed to CF:** Phase 7 complete — bridge + CAP running
+**Pending deploy (batch with embeddings):** All changes below
+
+**Changes since last deploy:**
+- KB: 30 → 65 events, act+emotion columns removed (AI classifies these)
+- schema.cds: country/lat/lng added to ChronicleEvents
+- mj-service.js: Claude now returns country/lat/lng per event; stored + published to Solace
+- mj-service.js: all 10 code review fixes applied (reconnect, resetSession, actNumber, keyFigures, SQL sanitise, etc.)
+- consumer.html: 8 cognitive modes (06/07/08 now visible and triggered)
+- consumer.html: emotion bars fully dynamic — shows whatever Claude returns, not hardcoded 4
+- consumer.html: Share Tech Mono font, dynamic BRIDGE_WS, MJ LIVE title, removed dead connectBridge
+- producer.html: dynamic BRIDGE_WS
+- bridge/index.js: test-chronicle payload includes transcript+ragContext
 
 ---
 

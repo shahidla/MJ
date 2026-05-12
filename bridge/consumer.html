@@ -189,8 +189,9 @@
     font-size: clamp(9px, 1vw, 12px);
     letter-spacing: 2px;
     color: rgba(255,255,255,0.35);
-    width: 60px;
+    width: 80px;
     text-align: right;
+    text-transform: lowercase;
   }
 
   .emotion-bar-bg {
@@ -468,24 +469,7 @@
     <div class="cognitive-mode" id="mode-6">06 — REFLECTIVE EVALUATION</div>
     <div class="cognitive-mode" id="mode-7">07 — PATTERN SYNTHESIS</div>
     <div class="cognitive-mode" id="mode-8">08 — GENERATIVE EXPRESSION</div>
-    <div id="emotion-bar-panel">
-      <div class="emotion-row">
-        <div class="emotion-label">wonder</div>
-        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-wonder" style="background:#c9a84c"></div></div>
-      </div>
-      <div class="emotion-row">
-        <div class="emotion-label">grief</div>
-        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-grief" style="background:#4a7c9e"></div></div>
-      </div>
-      <div class="emotion-row">
-        <div class="emotion-label">anger</div>
-        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-anger" style="background:#c0392b"></div></div>
-      </div>
-      <div class="emotion-row">
-        <div class="emotion-label">hope</div>
-        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-hope" style="background:#27ae60"></div></div>
-      </div>
-    </div>
+    <div id="emotion-bar-panel"></div>
   </div>
 
   <!-- Centre: Year reveal -->
@@ -569,27 +553,34 @@ function handleEqPayload(payload) {
   lastFrameTs = Date.now();
 }
 
-// Emotion weights per label keyword
-const EMOTION_MAP = {
-  wonder: ['wonder','awe','hopeful','visionary','amazement','pride'],
-  grief:  ['grief','despair','sorrow','anguish','mourning','chaos','devastation'],
-  anger:  ['anger','defiance','injustice','rage','resistance','fury'],
-  hope:   ['hope','determination','transformation','change','renewal','redemption']
-};
-
-const emotionScores = { wonder: 0, grief: 0, anger: 0, hope: 0 };
+// Dynamic emotion tracking — whatever Claude returns, we show it
+const emotionCounts = {};
+const emotionColours = [
+  '#c9a84c','#4a7c9e','#c0392b','#27ae60','#8e44ad','#e67e22','#1abc9c','#e74c3c'
+];
 
 function updateEmotionBars(emotionText) {
   if (!emotionText) return;
-  const lower = emotionText.toLowerCase();
-  Object.entries(EMOTION_MAP).forEach(([key, keywords]) => {
-    if (keywords.some(k => lower.includes(k))) {
-      emotionScores[key] = Math.min(100, emotionScores[key] + 30);
-    } else {
-      emotionScores[key] = Math.max(0, emotionScores[key] - 5);
-    }
-    document.getElementById(`bar-${key}`).style.width = emotionScores[key] + '%';
-  });
+  // Claude often returns "grief, despair" — take first word as primary
+  const primary = emotionText.split(/[,\/]/)[0].trim().toLowerCase();
+  if (!primary) return;
+
+  emotionCounts[primary] = (emotionCounts[primary] || 0) + 1;
+
+  const panel = document.getElementById('emotion-bar-panel');
+  const total = Object.values(emotionCounts).reduce((a, b) => a + b, 0);
+  const sorted = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  panel.innerHTML = sorted.map(([emotion, count], i) => {
+    const pct = Math.round((count / total) * 100);
+    const colour = emotionColours[i % emotionColours.length];
+    return `<div class="emotion-row">
+      <div class="emotion-label">${emotion}</div>
+      <div class="emotion-bar-bg">
+        <div class="emotion-bar-fill" style="width:${pct}%;background:${colour}"></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function activateMode(id, durationMs) {
