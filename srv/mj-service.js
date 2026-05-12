@@ -306,10 +306,12 @@ module.exports = class MJService extends cds.ApplicationService {
 
       // Publish chronicle/event to Solace
       const solacePayload = {
-        emotion: result.emotion,
-        year:    result.year,
-        event:   result.event,
-        insight: result.insight
+        emotion:    result.emotion,
+        year:       result.year,
+        event:      result.event,
+        insight:    result.insight,
+        transcript: transcript,
+        ragContext: result.ragContext
       };
       publishToSolace('chronicle/event', solacePayload);
       console.log('CAP: published to Solace chronicle/event');

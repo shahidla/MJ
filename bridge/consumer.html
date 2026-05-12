@@ -318,6 +318,36 @@
     margin-top: 2px;
   }
 
+  .ce-heard {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(8px, 0.8vw, 10px);
+    color: rgba(255,255,255,0.25);
+    margin-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 3px;
+  }
+
+  .ce-heard span.label {
+    color: rgba(255,255,255,0.15);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 8px;
+  }
+
+  .ce-rag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(8px, 0.75vw, 9px);
+    color: rgba(100,180,255,0.35);
+    margin-top: 2px;
+  }
+
+  .ce-rag span.label {
+    color: rgba(100,180,255,0.2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 8px;
+  }
+
   /* Between-act reflection */
   #reflection-panel {
     position: fixed;
@@ -606,6 +636,8 @@ function addChronicleEntry(payload) {
     <div class="ce-year">${payload.year || '—'}</div>
     <div class="ce-event">${payload.event || ''}</div>
     <div class="ce-insight">${payload.insight || ''}</div>
+    ${payload.transcript ? `<div class="ce-heard"><span class="label">heard · </span>${payload.transcript}</div>` : ''}
+    ${payload.ragContext ? `<div class="ce-rag"><span class="label">kb · </span>${payload.ragContext.substring(0, 120)}${payload.ragContext.length > 120 ? '…' : ''}</div>` : ''}
   `;
   container.appendChild(entry);
 
