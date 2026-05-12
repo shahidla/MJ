@@ -170,6 +170,17 @@ app.get('/test-publish', (req, res) => {
   res.json({ published: true, topic: 'test/bridge', payload: testPayload });
 });
 
+app.post('/chronicle-event', express.json(), (req, res) => {
+  publish('chronicle/event', req.body);
+  res.status(204).end();
+});
+
+app.get('/test-chronicle', (req, res) => {
+  const payload = { emotion: 'grief', year: '1968', event: 'Martin Luther King assassinated', insight: 'The AI witnesses humanity at its darkest moment of broken promise.' };
+  publish('chronicle/event', payload);
+  res.json({ published: true, payload });
+});
+
 app.get('/status', (req, res) => {
   res.json({
     transport: TRANSPORT,

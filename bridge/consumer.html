@@ -120,6 +120,53 @@
     color: rgba(255,255,255,0.35);
   }
 
+  #chronicle-panel {
+    position: fixed;
+    bottom: 160px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    width: 70vw;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  #chronicle-emotion {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(11px, 1.4vw, 16px);
+    letter-spacing: 4px;
+    color: rgba(201,168,76,0.6);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  #chronicle-year {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(32px, 6vw, 80px);
+    letter-spacing: 12px;
+    color: rgba(255,255,255,0.9);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  #chronicle-event {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(13px, 1.8vw, 20px);
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 6px;
+  }
+
+  #chronicle-insight {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(11px, 1.3vw, 15px);
+    letter-spacing: 1px;
+    color: rgba(201,168,76,0.5);
+  }
+
   #progress-bar {
     position: fixed;
     bottom: 0;
@@ -157,6 +204,13 @@
 
 <div id="ws-status">connecting...</div>
 <div id="eq-debug" style="position:fixed;top:28px;right:16px;z-index:40;font-size:11px;letter-spacing:2px;color:#c9a84c;opacity:0.7;">EQ: 0 | max: 0</div>
+
+<div id="chronicle-panel">
+  <div id="chronicle-emotion"></div>
+  <div id="chronicle-year"></div>
+  <div id="chronicle-event"></div>
+  <div id="chronicle-insight"></div>
+</div>
 
 <div id="transcript-panel">
   <div id="transcript-history"></div>
@@ -214,6 +268,13 @@ function handleEqPayload(payload) {
   }
   externalData = true;
   lastFrameTs = Date.now();
+}
+
+function handleChronicleEvent(payload) {
+  if (payload.emotion) document.getElementById('chronicle-emotion').textContent = payload.emotion;
+  if (payload.year)    document.getElementById('chronicle-year').textContent = payload.year;
+  if (payload.event)   document.getElementById('chronicle-event').textContent = payload.event;
+  if (payload.insight) document.getElementById('chronicle-insight').textContent = payload.insight;
 }
 
 function handleTranscript(text, isFinal) {
@@ -276,18 +337,44 @@ function connectSolace(cfg) {
       solace.SolclientFactory.createTopicDestination('audio/equalizer'),
       true, 'audio/equalizer', 1000
     );
-    // chronicle/event will be subscribed here when CAP publishes to Solace
+    session.subscribe(
+      solace.SolclientFactory.createTopicDestination('chronicle/event'),
+      true, 'chronicle/event', 1000
+    );
   });
   session.on(solace.SessionEventCode.MESSAGE, (msg) => {
     try {
-      const payload = JSON.parse(msg.getSdtContainer().getValue());
-      handleEqPayload(payload);
-    } catch (_) {}
+      const topic = msg.getDestination().getName();
+      console.log('Solace message received, topic:', topic);
+      // Bridge uses SDT container; CPI REST API uses binary attachment
+      let raw;
+      if (msg.getSdtContainer()) {
+        raw = msg.getSdtContainer().getValue();
+      } else if (msg.getBinaryAttachment()) {
+        const bin = msg.getBinaryAttachment();
+        raw = typeof bin === 'string' ? bin : new TextDecoder().decode(bin);
+      }
+      console.log('Solace raw message:', raw);
+      const payload = JSON.parse(raw);
+      if (topic === 'audio/equalizer') {
+        handleEqPayload(payload);
+      } else if (topic === 'chronicle/event') {
+        handleChronicleEvent(payload);
+      }
+    } catch (e) { console.error('Solace message error:', e); }
   });
   session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (e) => {
     wsStatus.textContent = 'solace error';
     wsStatus.className = 'err';
     console.error('Solace consumer error:', e.infoStr);
+  });
+
+  session.on(solace.SessionEventCode.SUBSCRIPTION_OK, (e) => {
+    console.log('Solace subscription OK:', e.correlationKey);
+  });
+
+  session.on(solace.SessionEventCode.SUBSCRIPTION_ERROR, (e) => {
+    console.error('Solace subscription ERROR:', e.correlationKey, e.infoStr);
   });
   session.connect();
 }
