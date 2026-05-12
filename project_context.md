@@ -599,6 +599,130 @@ Fix: `cds.requires.auth.kind = "dummy"` in `package.json` — prevents CAP from 
 
 ---
 
+---
+
+## Pending Tasks — Ordered (last updated: 2026-05-12)
+
+This is the single source of truth for what remains. Ordered by dependency — you cannot do step N before step N-1.
+
+---
+
+### Priority 1 — Foundation (blocks everything below)
+
+**1. Knowledge base expansion**
+- Current state: 30 events, focused on HIStory (1776–1997). Earth Song, They Don't Care About Us, Man in the Mirror have minimal or no coverage.
+- What to add: 10–15 events per song, covering the years/moments MJ sings about, plus key people who appear in the music videos (for RAG to surface them when the AI hears their names)
+- Songs to cover fully:
+  - HIStory — already partially done, fill gaps
+  - They Don't Care About Us — racial injustice, police brutality, invisible communities
+  - Earth Song — environmental destruction, species loss, war, children
+  - Man in the Mirror — the moment of personal accountability, global compassion
+- User will review the people-in-video content separately (keep last)
+- **File:** `db/data/mj-HistoryEvents.csv`
+
+**2. Generate and store vector embeddings**
+- Current state: `embedding` column exists in schema as `LargeString` but is empty — never populated
+- What to do: for each row in HistoryEvents, generate an embedding vector using the Anthropic embedding API (or text-embedding-3-small via OpenAI), store as JSON-serialised array in the `embedding` column
+- HANA NLP/Vector engine was provisioned — this is the missing step
+- **Depends on:** task 1 (no point embedding an incomplete KB)
+
+**3. Switch ragRetrieve to HANA VECTOR_SEARCH**
+- Current state: `ragRetrieve()` in `srv/mj-service.js:138` uses SQL `LIKE '%keyword%'` — keyword match only
+- What to do: replace with HANA `VECTOR_SEARCH` using cosine similarity on the `embedding` column against a freshly generated query embedding
+- This is what the plan promised — "HANA Vector RAG" not "HANA keyword search"
+- **Depends on:** task 2
+
+---
+
+### Priority 2 — Architecture correctness
+
+**4. CPI iFlow update — remove Claude, POST raw transcript to CAP**
+- Current state: CPI iFlow calls Claude Haiku + Groovy JSON extraction + Solace REST publish (bypasses CAP entirely)
+- What to do: strip the iFlow to just: HTTPS Sender → Content Modifier (wrap body as JSON) → Request Reply → CAP `/odata/v4/mj/receiveTranscript`
+- CAP owns all intelligence. CPI is the enterprise relay, not the brain.
+- The `"act"` field was already removed from CPI's Claude output schema — but the entire Claude call in CPI needs to go. This is the full resolution of the "we don't need act in CPI Claude" decision: the answer is we don't need Claude in CPI at all.
+- **No code dependency** — pure CPI UI change
+
+**5. Run log — full pipeline thinking per session**
+- Current state: ChronicleEvents in HANA has per-event data, but no easy way to see a full session at a glance with all pipeline fields
+- What to build: a new CAP endpoint `/odata/v4/mj/sessionLog` (or a formatted GET on ChronicleEvents) that returns a table per session: timestamp | transcript | emotion | year | event | insight | ragContext | actNumber
+- User wants to see "the full thinking" — what the AI heard, what it retrieved, what it concluded, all in one view
+- Could also be a simple HTML page served from the bridge at `/log`
+
+---
+
+### Priority 3 — Demo polish
+
+**6. Consumer: remove hardcoded "Billie Jean" label**
+- Currently visible in the consumer UI — the audio file label or some text references Billie Jean
+- Update to reflect the actual demo (4-act journey, not a single song)
+- **Keep for later**
+
+**7. Audio file — 4-song demo audio**
+- Current state: `app/media/billie-jean.mp3` (full track, for local testing) and `app/media/vocals.mp3` (isolated vocal test)
+- What's needed: the edited 4-song demo file (HIStory → They Don't Care → Earth Song → Man in the Mirror), continuous, with crossfades as specified in the plan
+- This is the actual demo asset — nothing works end-to-end without it
+- **Keep for later** — create or source the audio file
+
+**8. Prompt review — MJ-specific vs universal language**
+- Current state: `srv/mj-service.js:179` — "You are an AI witnessing humanity's journey through Michael Jackson's music in real time." — MJ is named directly
+- The universal pipeline claim says "the AI does not know it is listening to Michael Jackson" — but the system prompt tells it exactly that
+- Decision to make: keep MJ-specific (fine for the demo, honest) or generalise (truer to the universal pipeline claim)
+- Also: the reflection/finale prompts also reference "Michael Jackson's music" explicitly
+- **Keep for later** — low impact, review after everything else works
+
+---
+
+### Priority 4 — Completion
+
+**9. Architecture diagram**
+- The full data flow from producer browser → bridge → Solace → CPI → CAP → HANA → Solace → consumer, with each component's one-line role
+- For Phase 7 blog section and conference slide
+
+**10. Demo video**
+- Full end-to-end recording of the 4-act demo: EQ reacting, cognitive modes animating, chronicle building, reflection appearing, finale landing
+- Requires task 7 (4-song audio) to be complete first
+
+**11. Blog post**
+- Sections: The Philosophy → Architecture → Code Flow → 8 Cognitive Modes → Phase-by-Phase Build → Demo Video
+- Architecture diagram embedded
+- Decision log: what was tried, what was rejected, why
+
+---
+
+### Deferred (user-flagged as last)
+
+- Knowledge base: specific people in music videos (user reviewing separately)
+- Final lyrics handling — how MJ's actual lyrics appear/bind in the UI
+- Consumer UI label fixes beyond "Billie Jean"
+- Prompt language review ("AI witnessing humanity" framing)
+
+---
+
+### Architecture validation — built vs planned
+
+| Component | Planned | Built | Gap |
+|-----------|---------|-------|-----|
+| Solace AEM — event mesh | ✅ | ✅ | None |
+| CPI — enterprise gateway | ✅ | ⚠️ | Still calls Claude directly, should relay to CAP |
+| ElevenLabs STT | ✅ | ✅ | STT_ENABLED=false (credits) |
+| CAP cognitive pipeline | ✅ | ✅ | None |
+| LangChain temporal memory | ✅ | ✅ | None |
+| HANA persistence (ChronicleEvents) | ✅ | ✅ | None |
+| HANA Vector RAG | ✅ | ❌ | Keyword search only, no embeddings |
+| Vector embeddings stored | ✅ | ❌ | embedding column empty |
+| Reflection Agent (between-act) | ✅ | ✅ | None |
+| Finale Agent (closing reflection) | ✅ | ✅ | None |
+| Consumer 3-panel layout | ✅ | ✅ | None |
+| Solace publish from CAP | ✅ | ✅ | None |
+| BTP CF deployment — bridge + CAP | ✅ | ✅ | None |
+| Architecture diagram | ✅ | ❌ | Not created |
+| Demo video | ✅ | ❌ | Needs 4-song audio first |
+
+**Two hard gaps:** vector embeddings and the 4-song audio file. Everything else is built or a cleanup task.
+
+---
+
 ## The Universal Pipeline
 
 MJ is the demo data. The tribute is the soul. The architecture is universal.
