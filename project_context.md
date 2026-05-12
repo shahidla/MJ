@@ -437,10 +437,11 @@ HTTPS Sender (/mj-transcript)
 | HDI container mj-live-hdi created | SAP BTP | Done ✅ |
 | cds deploy --to hana:mj-live-hdi | HANA Cloud | Done ✅ |
 | CAP connected to HANA, ChronicleEvents persisting | HANA Cloud | Done ✅ |
-| HistoryEvents knowledge base seeded | | Pending |
-| HANA Vector RAG (similarity search) | | Pending |
-| LangChain relational reasoning (Mode 5) | | Pending |
-| Bridge → CAP auto-POST on transcript | | Pending |
+| HistoryEvents knowledge base seeded | | Next |
+| HANA Vector RAG (similarity search) | | Next |
+| Bridge → CAP auto-POST on transcript | | Next |
+| LangChain relational reasoning (Mode 5) | | Phase 4 |
+| CPI iFlow updated — POST raw transcript to CAP (remove Claude from CPI) | | Phase 4 |
 
 **CAP endpoints (local):**
 - `http://localhost:4004/odata/v4/mj/receiveTranscript` — cognitive pipeline entry point
@@ -490,6 +491,36 @@ CPI publishes to Solace via REST API but consumer does not receive it. Root caus
 **Resolution:** When bridge deploys to BTP CF (Phase 7), CPI will POST to bridge `/chronicle-event` endpoint, bridge republishes to Solace using SDK (SDT format). Consumer receives correctly. This is the end state anyway.
 
 For now: use bridge `/test-chronicle` to test consumer display without ElevenLabs credits.
+
+### Today's Session Summary (2026-05-12)
+
+**What was built and proven working:**
+1. Solace transport confirmed — EQ + PCM flowing through Solace broker ✅
+2. Consumer subscribes directly to Solace `audio/equalizer` via Solace JS SDK ✅
+3. CPI iFlow 1 built — HTTPS → Claude Haiku → Groovy JSON extract → Solace REST ✅
+4. Consumer subscribes to Solace `chronicle/event` and displays emotion/year/event/insight ✅
+5. CAP 9 scaffolded fresh — LangChain + Claude + HANA + Solace ✅
+6. CAP cognitive pipeline working — receiveTranscript → Claude → persist → Solace ✅
+7. HANA Cloud provisioned with NLP enabled ✅
+8. HDI container mj-live-hdi deployed — all tables in HANA ✅
+9. ChronicleEvents persisting to HANA Cloud — verified in Database Explorer ✅
+
+**Full pipeline proven end to end (local):**
+```
+curl transcript
+  → CAP receiveTranscript
+  → Claude Haiku (emotion/year/event/insight)
+  → HANA ChronicleEvents (persisted) ✅
+  → Solace chronicle/event ✅
+  → Consumer displays on screen ✅
+```
+
+**Key decisions made today:**
+- CPI's Claude call is TEMPORARY — in final state CPI just relays transcript to CAP
+- "act" field removed from Claude output — AI classifies from content, no hardcoded song names
+- HANA Cloud: plan `hana-free`, NLP enabled, CF mapping to 7f7132aetrial/dev space
+- HDI container: `mj-live-hdi`, plan `hdi-shared`
+- Deploy command: `cds deploy --to hana:mj-live-hdi` (requires CF login via `cf target -o 7f7132aetrial -s dev`)
 
 ### Exact Stopping Point — Where Phase 3 Begins
 
