@@ -44,12 +44,14 @@
   <audio id="audio" src="/audio-file" preload="auto" crossorigin="anonymous"></audio>
 
   <script>
-    const BRIDGE = 'http://localhost:3001';
+    const BRIDGE_WS = 'ws://localhost:3001?role=producer';
+    const BRIDGE_HTTP = 'http://localhost:3001';
     const EQ_BARS = 32;
     let audioCtx, analyser, source, workletNode;
     let playing = false;
     let rafId = null;
     let pcmChunksSent = 0;
+    let producerWs = null;
 
     const audio = document.getElementById('audio');
     const playBtn = document.getElementById('play-btn');
@@ -58,20 +60,26 @@
     const timeEl = document.getElementById('time');
     const pcmEl = document.getElementById('pcm-indicator');
 
-    // --- Bridge status ---
-    async function checkBridge() {
-      try {
-        const r = await fetch(`${BRIDGE}/status`);
-        const j = await r.json();
-        document.getElementById('bridge-status').textContent = `${j.transport} — consumers: ${j.clients}`;
+    // --- Producer WebSocket (replaces HTTP POST for audio + EQ) ---
+    function connectProducerWs() {
+      producerWs = new WebSocket(BRIDGE_WS);
+      producerWs.binaryType = 'arraybuffer';
+
+      producerWs.onopen = () => {
+        document.getElementById('bridge-status').textContent = 'connected (ws)';
         document.getElementById('bridge-status').className = 'ok';
-      } catch (e) {
-        document.getElementById('bridge-status').textContent = 'not reachable';
+      };
+      producerWs.onclose = () => {
+        document.getElementById('bridge-status').textContent = 'reconnecting...';
         document.getElementById('bridge-status').className = 'err';
-      }
+        setTimeout(connectProducerWs, 2000);
+      };
+      producerWs.onerror = () => {
+        document.getElementById('bridge-status').textContent = 'ws error';
+        document.getElementById('bridge-status').className = 'err';
+      };
     }
-    checkBridge();
-    setInterval(checkBridge, 2000);
+    connectProducerWs();
 
     // --- Time display ---
     function fmt(s) {
@@ -94,7 +102,7 @@
       playing = false;
       playBtn.textContent = 'PLAY';
       stopBtn.disabled = true;
-      cancelAnimationFrame(rafId);
+      clearInterval(rafId);
       pcmEl.textContent = 'idle';
     });
 
@@ -112,20 +120,22 @@
     async function setupAudio() {
       if (audioCtx) return;
 
-      audioCtx = new AudioContext({ sampleRate: 16000 });
+      // Native-rate context for EQ visualiser — audio plays at full quality
+      audioCtx = new AudioContext();
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = EQ_BARS * 2;
-
-      // Load worklet
-      await audioCtx.audioWorklet.addModule('/worklet');
-      workletNode = new AudioWorkletNode(audioCtx, 'mj-pcm-logger-worklet');
-
       const mediaSource = audioCtx.createMediaElementSource(audio);
+      mediaSource.connect(analyser);
+      analyser.connect(audioCtx.destination); // speakers at native quality
 
-      // Chain: audio → worklet (PCM16 tap) → analyser (EQ tap) → speakers
-      mediaSource.connect(workletNode);
-      workletNode.connect(analyser);
-      analyser.connect(audioCtx.destination);
+      // Separate 16kHz context for PCM capture → STT only
+      const sttCtx = new AudioContext({ sampleRate: 16000 });
+      await sttCtx.audioWorklet.addModule('/worklet');
+      workletNode = new AudioWorkletNode(sttCtx, 'mj-pcm-logger-worklet');
+      const stream = audio.captureStream();
+      const streamSource = sttCtx.createMediaStreamSource(stream);
+      streamSource.connect(workletNode);
+      workletNode.connect(sttCtx.destination);
 
       // PCM16 chunks arrive here — 1 second each at 16kHz
       workletNode.port.onmessage = (event) => {
@@ -135,16 +145,13 @@
       };
     }
 
-    // --- Send PCM16 to bridge ---
+    // --- Send PCM16 to bridge via WebSocket binary frame ---
     function sendPcm(arrayBuffer) {
       pcmChunksSent++;
       pcmEl.textContent = `sending — ${pcmChunksSent} chunks`;
-
-      fetch(`${BRIDGE}/audio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: arrayBuffer
-      }).catch(() => {});
+      if (producerWs && producerWs.readyState === WebSocket.OPEN) {
+        producerWs.send(arrayBuffer);
+      }
     }
 
     // --- Play / Pause ---
@@ -155,7 +162,7 @@
         audio.pause();
         playing = false;
         playBtn.textContent = 'PLAY';
-        cancelAnimationFrame(rafId);
+        clearInterval(rafId);
         pcmEl.textContent = 'paused';
       } else {
         await audioCtx.resume();
@@ -175,28 +182,22 @@
       playing = false;
       playBtn.textContent = 'PLAY';
       stopBtn.disabled = true;
-      cancelAnimationFrame(rafId);
+      clearInterval(rafId);
       pcmChunksSent = 0;
       pcmEl.textContent = 'idle';
     });
 
-    // --- EQ frames ---
+    // --- EQ frames via setInterval (not RAF — keeps running when tab is in background) ---
     function sendEqFrames() {
       const freqData = new Uint8Array(analyser.frequencyBinCount);
-
-      function frame() {
+      rafId = setInterval(() => {
         if (!playing) return;
         analyser.getByteFrequencyData(freqData);
         const bars = Array.from(freqData.slice(0, EQ_BARS)).map(v => Math.round(v));
-        fetch(`${BRIDGE}/eq`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bars, ts: audio.currentTime })
-        }).catch(() => {});
-        rafId = requestAnimationFrame(frame);
-      }
-
-      rafId = requestAnimationFrame(frame);
+        if (producerWs && producerWs.readyState === WebSocket.OPEN) {
+          producerWs.send(JSON.stringify({ type: 'eq', bars, ts: audio.currentTime }));
+        }
+      }, 50); // 20fps — smooth enough, runs in background tab
     }
   </script>
 </body>

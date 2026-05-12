@@ -15,7 +15,7 @@
     width: 100vw;
     height: 100vh;
     font-family: 'Bebas Neue', sans-serif;
-    cursor: none;
+    cursor: default;
   }
 
   canvas {
@@ -84,6 +84,10 @@
     width: 70vw;
     text-align: center;
     pointer-events: none;
+    max-height: 40vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
   }
 
   #transcript-partial {
@@ -96,14 +100,24 @@
     transition: opacity 0.3s ease;
   }
 
-  #transcript-final {
+  #transcript-history {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .transcript-line {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(18px, 3vw, 36px);
-    color: rgba(255,255,255,0.85);
+    font-size: clamp(14px, 2.2vw, 28px);
     letter-spacing: 6px;
-    min-height: 1.5em;
-    margin-bottom: 8px;
+    color: rgba(255,255,255,0.85);
     transition: opacity 0.5s ease;
+  }
+
+  .transcript-line.old {
+    font-size: clamp(11px, 1.4vw, 18px);
+    color: rgba(255,255,255,0.35);
   }
 
   #progress-bar {
@@ -142,9 +156,10 @@
 </div>
 
 <div id="ws-status">connecting...</div>
+<div id="eq-debug" style="position:fixed;top:28px;right:16px;z-index:40;font-size:11px;letter-spacing:2px;color:#c9a84c;opacity:0.7;">EQ: 0 | max: 0</div>
 
 <div id="transcript-panel">
-  <div id="transcript-final"></div>
+  <div id="transcript-history"></div>
   <div id="transcript-partial"></div>
 </div>
 
@@ -153,6 +168,11 @@
 <script>
 const BRIDGE_WS = 'ws://localhost:3001';
 const FREQ_BINS = 128;
+let eqFrames = 0;
+
+// Transcript state — updated by onmessage, rendered by RAF loop
+let pendingPartial = '';
+let transcriptDirty = false;
 
 const canvas = document.getElementById('c');
 const c = canvas.getContext('2d');
@@ -193,6 +213,8 @@ function connectBridge() {
       const msg = JSON.parse(e.data);
       if (msg.topic === 'audio/equalizer' && msg.data && msg.data.bars) {
         const bars = msg.data.bars;
+        const maxBar = Math.max(...bars);
+        document.getElementById('eq-debug').textContent = `EQ: ${++eqFrames} | max: ${maxBar}`;
         // Upsample 32 bars → FREQ_BINS by repeating each bar 4×
         const step = FREQ_BINS / bars.length;
         for (let i = 0; i < FREQ_BINS; i++) {
@@ -214,11 +236,21 @@ function connectBridge() {
       } else if (msg.topic === 'chronicle/transcript' && msg.data) {
         const { text, isFinal } = msg.data;
         if (isFinal) {
-          document.getElementById('transcript-final').textContent = text;
-          document.getElementById('transcript-partial').textContent = '';
+          pendingPartial = '';
+          const history = document.getElementById('transcript-history');
+          const line = document.createElement('div');
+          line.className = 'transcript-line';
+          line.textContent = text;
+          history.appendChild(line);
+          const lines = history.querySelectorAll('.transcript-line');
+          if (lines.length > 5) lines[0].remove();
+          history.querySelectorAll('.transcript-line').forEach((el, i, arr) => {
+            el.classList.toggle('old', i < arr.length - 1);
+          });
         } else {
-          document.getElementById('transcript-partial').textContent = text;
+          pendingPartial = text;
         }
+        transcriptDirty = true;
       }
     } catch (_) {}
   };
@@ -265,6 +297,13 @@ function getEnergy(data, lo, hi) {
 
 function draw() {
   requestAnimationFrame(draw);
+
+  // Flush transcript updates every frame — renders regardless of tab focus
+  if (transcriptDirty) {
+    document.getElementById('transcript-partial').textContent = pendingPartial;
+    transcriptDirty = false;
+  }
+
   const w = canvas.width, h = canvas.height;
 
   // If no external data for >1s, treat as idle

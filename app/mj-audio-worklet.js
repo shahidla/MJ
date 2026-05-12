@@ -2,7 +2,7 @@ class MJPcmLoggerWorklet extends AudioWorkletProcessor {
   constructor() {
     super();
     this.buffer = [];
-    this.bufferSize = 16000; // about 1 second at 16kHz
+    this.bufferSize = 3200; // 200ms at 16kHz — keeps AssemblyAI latency low
   }
 
   floatTo16BitPCM(input) {

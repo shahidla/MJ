@@ -5,8 +5,8 @@ const { WebSocketServer } = require('ws');
 const EventEmitter = require('events');
 const path = require('path');
 
-// Temporary direct AssemblyAI integration — replaced by CPI iFlow 1 later
-const assemblyai = require('./assemblyai');
+// OpenAI STT comparison — all 4 models in parallel
+const sttAll = require('./stt-all');
 
 const app = express();
 const server = http.createServer(app);
@@ -64,56 +64,94 @@ function publish(topic, payload) {
   }
 }
 
-// --- Local mock: consumer browser connects via WebSocket ---
-wss.on('connection', (ws) => {
-  console.log('Consumer connected, total:', wss.clients.size);
+// --- WebSocket: producer (sends audio+EQ) vs consumer (receives events) ---
+wss.on('connection', (ws, req) => {
+  const url = new URL(req.url, 'http://localhost');
+  const role = url.searchParams.get('role');
 
-  const onEq = (payload) => {
-    if (ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify({ topic: 'audio/equalizer', data: payload }));
-    }
-  };
+  if (role === 'producer') {
+    console.log('Producer connected via WebSocket');
 
-  const onTranscript = (payload) => {
-    if (ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify({ topic: 'chronicle/transcript', data: payload }));
-    }
-  };
+    ws.on('message', (data, isBinary) => {
+      if (isBinary) {
+        // Raw PCM16 audio — forward to transport
+        if (TRANSPORT === 'solace') {
+          if (!solaceConnected) { console.warn('Solace not connected, dropping PCM chunk'); return; }
+          const solace = require('solclientjs');
+          const msg = solace.SolclientFactory.createMessage();
+          msg.setDestination(solace.SolclientFactory.createTopicDestination('audio/pcm'));
+          msg.setBinaryAttachment(data);
+          msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
+          solaceSession.send(msg);
+        } else {
+          sttAll.sendPcm(data);
+        }
+      } else {
+        // JSON EQ frame
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg.type === 'eq') {
+            publish('audio/equalizer', { bars: msg.bars, ts: msg.ts });
+          }
+        } catch (e) { /* ignore malformed */ }
+      }
+    });
 
-  bus.on('audio/equalizer', onEq);
-  bus.on('chronicle/transcript', onTranscript);
+    ws.on('close', () => console.log('Producer disconnected'));
 
-  ws.on('close', () => {
-    bus.off('audio/equalizer', onEq);
-    bus.off('chronicle/transcript', onTranscript);
-    console.log('Consumer disconnected, total:', wss.clients.size);
-  });
+  } else {
+    // Consumer — receives EQ and transcript events
+    console.log('Consumer connected, total:', wss.clients.size);
+
+    const onEq = (payload) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ topic: 'audio/equalizer', data: payload }));
+      }
+    };
+
+    const onTranscript = (payload) => {
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ topic: 'chronicle/transcript', data: payload }));
+      }
+    };
+
+    bus.on('audio/equalizer', onEq);
+    bus.on('chronicle/transcript', onTranscript);
+
+    ws.on('close', () => {
+      bus.off('audio/equalizer', onEq);
+      bus.off('chronicle/transcript', onTranscript);
+      console.log('Consumer disconnected, total:', wss.clients.size);
+    });
+  }
 });
 
 // --- Routes ---
-
 app.get('/producer', (req, res) => res.sendFile(path.join(__dirname, 'producer.html')));
 app.get('/consumer', (req, res) => res.sendFile(path.join(__dirname, 'consumer.html')));
-app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, '../app/media/billie-jean.mp3')));
+app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, '../app/media/vocals.mp3')));
 app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, '../app/mj-audio-worklet.js')));
 
+// HTTP fallbacks — support cached producer pages that still POST
 app.post('/eq', express.json(), (req, res) => {
+  const nonZero = req.body.bars ? req.body.bars.filter(b => b > 0).length : 0;
+  console.log(`EQ via HTTP: ${nonZero}/${req.body.bars ? req.body.bars.length : 0} non-zero bars`);
   publish('audio/equalizer', req.body);
   res.status(204).end();
 });
 
 app.post('/audio', express.raw({ type: 'application/octet-stream', limit: '2mb' }), (req, res) => {
   if (TRANSPORT === 'solace') {
-    if (!solaceConnected) { console.warn('Solace not connected, dropping PCM chunk'); res.status(204).end(); return; }
-    const solace = require('solclientjs');
-    const msg = solace.SolclientFactory.createMessage();
-    msg.setDestination(solace.SolclientFactory.createTopicDestination('audio/pcm'));
-    msg.setBinaryAttachment(req.body);
-    msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
-    solaceSession.send(msg);
+    if (solaceConnected) {
+      const solace = require('solclientjs');
+      const msg = solace.SolclientFactory.createMessage();
+      msg.setDestination(solace.SolclientFactory.createTopicDestination('audio/pcm'));
+      msg.setBinaryAttachment(req.body);
+      msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
+      solaceSession.send(msg);
+    }
   } else {
-    // Temp: send directly to AssemblyAI — replaced by CPI when ready
-    assemblyai.sendPcm(req.body);
+    sttAll.sendPcm(req.body);
   }
   res.status(204).end();
 });
@@ -136,9 +174,7 @@ server.listen(PORT, () => {
   if (TRANSPORT === 'solace') {
     solaceSession = connectSolace();
   } else {
-    // Temp: connect AssemblyAI directly until CPI iFlow 1 is ready
-    assemblyai.connect((text, isFinal) => {
-      console.log(`Transcript [${isFinal ? 'final' : 'partial'}]: ${text}`);
+    sttAll.init((text, isFinal) => {
       bus.emit('chronicle/transcript', { text, isFinal });
     });
   }
