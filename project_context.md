@@ -696,6 +696,7 @@ This is the single source of truth for what remains. Ordered by dependency — y
 - Final lyrics handling — how MJ's actual lyrics appear/bind in the UI
 - Consumer UI label fixes beyond "Billie Jean"
 - Prompt language review ("AI witnessing humanity" framing)
+- **Enable ElevenLabs STT** — set `STT_ENABLED=true` on the CF bridge app via `cf set-env mj-live-bridge STT_ENABLED true` then `cf restage mj-live-bridge`. Do this last — every run consumes ElevenLabs credits. Keep false until the demo is fully validated end-to-end.
 
 ---
 
