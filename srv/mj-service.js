@@ -205,9 +205,10 @@ Your task for this new transcript:
 2. Extract any specific year mentioned
 3. Identify the historical event or human moment being described
 4. Generate ONE insight sentence — if you have witnessed related figures or events before, draw the connection explicitly (e.g. "MLK appeared earlier as hope; now he returns as a broken promise")
+5. Identify the country where this event occurred and its approximate coordinates
 
 Return ONLY valid JSON, no markdown:
-{"emotion":"","year":"","event":"","insight":"one sentence that may reference earlier moments if relevant"}`;
+{"emotion":"","year":"","event":"","insight":"one sentence that may reference earlier moments if relevant","country":"","lat":0.0,"lng":0.0}`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),
@@ -217,7 +218,7 @@ Return ONLY valid JSON, no markdown:
   const text = response.content.trim();
 
   // Parse Claude response
-  let result = { emotion: '', year: '', event: '', insight: '' };
+  let result = { emotion: '', year: '', event: '', insight: '', country: '', lat: 0, lng: 0 };
   try {
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}') + 1;
@@ -316,7 +317,10 @@ module.exports = class MJService extends cds.ApplicationService {
         event:      result.event,
         insight:    result.insight,
         ragContext: result.ragContext,
-        actNumber:  deriveActNumber(result.emotion)
+        actNumber:  deriveActNumber(result.emotion),
+        country:    result.country,
+        lat:        result.lat || 0,
+        lng:        result.lng || 0
       };
       await INSERT.into(ChronicleEvents).entries(event);
       console.log('CAP: persisted chronicle event');
@@ -328,7 +332,10 @@ module.exports = class MJService extends cds.ApplicationService {
         event:      result.event,
         insight:    result.insight,
         transcript: transcript,
-        ragContext: result.ragContext
+        ragContext: result.ragContext,
+        country:    result.country,
+        lat:        result.lat || 0,
+        lng:        result.lng || 0
       };
       publishToSolace('chronicle/event', solacePayload);
       console.log('CAP: published to Solace chronicle/event');

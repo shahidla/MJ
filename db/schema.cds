@@ -22,4 +22,7 @@ entity ChronicleEvents {
   insight       : String(1000);
   ragContext    : String(2000); // what HANA Vector returned
   actNumber     : Integer;      // 1-4
+  country       : String(100);  // country where the event occurred
+  lat           : Decimal(9,6); // latitude
+  lng           : Decimal(9,6); // longitude
 }
