@@ -80,15 +80,22 @@ function sendToElevenLabs(buffer) {
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
+const STT_ENABLED = process.env.STT_ENABLED === 'true';
+
 function init(onTranscript) {
   onTranscriptCb = onTranscript;
-  fs.writeFileSync(LOG_FILE, ''); // clear on each run
+  if (!STT_ENABLED) {
+    console.log('STT_ENABLED=false — ElevenLabs not connected (set STT_ENABLED=true to enable)');
+    return;
+  }
+  fs.writeFileSync(LOG_FILE, '');
   console.log('ElevenLabs: connecting...');
   console.log('Log:', LOG_FILE);
   initElevenLabs();
 }
 
 function sendPcm(buffer) {
+  if (!STT_ENABLED) return;
   sendToElevenLabs(buffer);
 }
 

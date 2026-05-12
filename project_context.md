@@ -353,7 +353,7 @@ That record is the difference between a developer who built something and an arc
 
 ---
 
-## Current Build State (last updated: 2026-05-11)
+## Current Build State (last updated: 2026-05-12)
 
 ### Phase 1 — COMPLETE
 ### Phase 2a — COMPLETE
@@ -361,15 +361,15 @@ That record is the difference between a developer who built something and an arc
 | What | File | Status |
 |------|------|--------|
 | Node.js bridge — dual transport | `bridge/index.js` | Done |
-| Producer HTML — play/pause/stop/seek, EQ POST | `bridge/producer.html` | Done |
-| AudioWorklet PCM16 capture wired into producer | `bridge/producer.html` | Done |
-| Bridge POST /audio handler | `bridge/index.js` | Done |
-| AssemblyAI streaming — TEMPORARY direct integration | `bridge/assemblyai.js` | Done — delete when CPI iFlow 1 built |
-| Consumer HTML — concert WebGL visualizer + live lyrics transcript panel | `bridge/consumer.html` | Done |
+| Producer HTML — native audio + separate 16kHz PCM capture | `bridge/producer.html` | Done |
+| AudioWorklet PCM16 capture (200ms chunks, setInterval EQ) | `bridge/producer.html` | Done |
+| ElevenLabs scribe_v2_realtime — primary STT | `bridge/stt-all.js` | Done |
+| STT_ENABLED flag — off by default to preserve API credits | `.env` + `bridge/stt-all.js` | Done |
+| Consumer HTML — WebGL visualizer + transcript panel (RAF-driven) | `bridge/consumer.html` | Done |
 | Local mock transport (EventEmitter + ws) | `bridge/index.js` | Working |
-| Solace transport (solclientjs) | `bridge/index.js` | Code complete, blocked by corporate DNS |
+| Solace transport (solclientjs) | `bridge/index.js` | Code complete — test next |
 | BTP CF deployment config | `bridge/manifest.yml` | Created |
-| Codebase cleanup | all | Done — deleted all v1 prototype files |
+| vocals.mp3 — isolated vocal test track | `app/media/vocals.mp3` | Added |
 
 **Three live URLs (bridge running locally):**
 - `http://localhost:3001/producer` — audio player, pushes EQ + PCM16 to bridge
@@ -383,29 +383,32 @@ npm install
 node index.js
 ```
 
+**STT flag — important:**
+- `STT_ENABLED=false` (default) — ElevenLabs not called, no API credits consumed
+- `STT_ENABLED=true` — enables ElevenLabs scribe_v2_realtime for transcription testing
+- Set in `.env` before starting bridge
 
-
-**What the temporary AssemblyAI integration does:**
-- `bridge/assemblyai.js` connects directly to `wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000`
-- Bridge forwards PCM16 chunks from `/audio` POST to AssemblyAI
-- AssemblyAI returns partial + final transcripts
-- Bridge broadcasts transcripts to consumer via WebSocket topic `chronicle/transcript`
-- Consumer displays them live at the bottom of the screen
-- **Delete `assemblyai.js` and its wiring in `index.js` when CPI iFlow 1 is ready**
+**STT decisions (locked 2026-05-12):**
+- ElevenLabs `scribe_v2_realtime` selected over Groq, Deepgram nova-2/3, AssemblyAI whisper-rt, OpenAI whisper-1/gpt-4o — best transcription of singing by significant margin
+- Confirmed via ELEVENLABS_STT_FEASIBILITY.md in repo root
+- All other STT services commented in `bridge/stt-all.js` with notes
 
 ### Exact Stopping Point — Where Phase 2b Begins
 
-**Blocked on corporate network — requires personal laptop or mobile hotspot.**
+1. **Test TRANSPORT=solace** — set `TRANSPORT=solace` in `.env`, run bridge on personal laptop (no corp DNS), verify EQ + PCM16 flow through Solace broker.
+2. **Build CPI iFlow 1** — subscribe `audio/pcm` from Solace → call ElevenLabs scribe_v2_realtime → POST transcript to CAP.
+3. **Build CAP service** — receive transcript, run LangChain + Claude cognitive pipeline, query HANA Vector RAG, persist to HANA, publish `chronicle/event` to Solace.
+4. **Wire consumer bottom panels** — receive `chronicle/event`, render cognitive mode + chronicle + closing reflection.
+5. **Test locally end-to-end**, then deploy bridge + CAP to BTP CF.
 
-1. **Test end-to-end** — `node index.js`, open `/producer` → Play, open `/consumer` → verify live lyrics appear. Terminal should show `AssemblyAI streaming: connected`.
-2. **Test TRANSPORT=solace** — set `TRANSPORT=solace` in `.env`, run bridge off corporate network, verify EQ + PCM16 flow through Solace.
-3. **Build CPI iFlow 1** — subscribe `audio/pcm` from Solace → wrap PCM16 to WAV → call AssemblyAI streaming → POST transcript to CAP. When done, delete `bridge/assemblyai.js`.
-4. **Build CAP service** — receive transcript, run LangChain pipeline, query HANA Vector RAG, persist to HANA, publish `chronicle/event` to Solace.
-5. **Wire consumer bottom panels** — receive `chronicle/event`, render cognitive mode + chronicle + closing reflection.
+### Locked Decisions
+- STT: ElevenLabs scribe_v2_realtime (in CPI iFlow 1)
+- LLM: Claude API (Anthropic direct) — SAP AI Core not available on trial
+- Test fully local first, then single final BTP CF push
+- STT_ENABLED=false during development to preserve ElevenLabs credits
 
 ### Open Questions
-- BTP CF org/space name for `cf push` — needed when deploying bridge
-- Which LLM for CAP cognitive pipeline — not yet decided (Claude via Bedrock, GPT-4o, or SAP AI Core)
+- BTP CF org/space name for `cf push`
 - HANA Vector knowledge base content — MJ history, song meanings, HIStory dates
 
 ---
