@@ -7,9 +7,7 @@ entity HistoryEvents {
   year         : Integer;
   headline     : String(200);
   context      : String(2000); // deep historical context for RAG
-  emotion      : String(50);   // dominant emotion: wonder/anger/grief/hope
-  act          : String(50);   // which act this belongs to
-  embedding    : LargeString;  // JSON-serialised vector (HANA Vector in prod)
+  embedding    : LargeString;  // JSON-serialised vector for HANA VECTOR_SEARCH
 }
 
 // Live chronicle — events detected during each demo run

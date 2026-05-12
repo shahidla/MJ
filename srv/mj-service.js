@@ -166,7 +166,7 @@ async function ragRetrieve(db, transcript) {
     ).join(' OR ');
 
     const results = await db.run(`
-      SELECT TOP 2 YEAR, HEADLINE, CONTEXT, EMOTION
+      SELECT TOP 2 YEAR, HEADLINE, CONTEXT
       FROM "MJ_HISTORYEVENTS"
       WHERE ${conditions}
       ORDER BY YEAR ASC
