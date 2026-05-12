@@ -422,6 +422,47 @@ HTTPS Sender (/mj-transcript)
 - Claude Opus/Sonnet reserved for Reflection Agent (Phase 6) and final insights
 - SAP AI Core not available on trial account
 
+### Phase 3 — IN PROGRESS
+
+| What | File | Status |
+|------|------|--------|
+| CAP scaffold fresh (CAP 9.9.1) | `package.json`, `db/schema.cds`, `srv/mj-service.cds` | Done ✅ |
+| CAP receiveTranscript action | `srv/mj-service.js` | Done ✅ |
+| Claude Haiku — emotion/year/event/insight | `srv/mj-service.js` | Done ✅ |
+| LangChain BufferMemory — temporal memory | `srv/mj-service.js` | Done ✅ |
+| ChronicleEvents persisted to SQLite (local) | `db/schema.cds` | Done ✅ |
+| CAP publishes chronicle/event to Solace | `srv/mj-service.js` | Done ✅ |
+| Consumer displays chronicle/event | `bridge/consumer.html` | Done ✅ |
+| HANA Cloud provisioned (with NLP) | SAP BTP | In progress |
+| cds deploy --to hana | | Pending HANA |
+| HistoryEvents knowledge base seeded | | Pending HANA |
+| HANA Vector RAG (similarity search) | | Pending HANA |
+| LangChain relational reasoning (Mode 5) | | Pending |
+| Bridge → CAP auto-POST on transcript | | Pending |
+
+**CAP endpoints (local):**
+- `http://localhost:4004/odata/v4/mj/receiveTranscript` — cognitive pipeline entry point
+- `http://localhost:4004/odata/v4/mj/ChronicleEvents` — live chronicle log
+- `http://localhost:4004/odata/v4/mj/HistoryEvents` — RAG knowledge base
+
+**Start CAP locally:**
+```bash
+cd C:\Users\shahi\Downloads\MJ
+cds watch
+```
+
+**Test cognitive pipeline:**
+```bash
+curl -X POST http://localhost:4004/odata/v4/mj/receiveTranscript \
+  -H "Content-Type: application/json" \
+  -d '{"transcript":"rosa parks refuses to give up her seat 1955"}'
+```
+
+**CF CLI installed:** `C:\cf-cli\cf.exe`
+**CF credentials:** API `https://api.cf.us10-001.hana.ondemand.com`, Org `7f7132aetrial`, Space `dev`
+**Space GUID:** `f5ef9aa7-8cd8-49a6-84ea-cf4f0df4cd52`
+**Org GUID:** `da7de550-a623-442e-9b17-620070dfb605`
+
 ### Phase 2b — What Is Working
 
 ```
