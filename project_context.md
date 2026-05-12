@@ -433,10 +433,12 @@ HTTPS Sender (/mj-transcript)
 | ChronicleEvents persisted to SQLite (local) | `db/schema.cds` | Done ✅ |
 | CAP publishes chronicle/event to Solace | `srv/mj-service.js` | Done ✅ |
 | Consumer displays chronicle/event | `bridge/consumer.html` | Done ✅ |
-| HANA Cloud provisioned (with NLP) | SAP BTP | In progress |
-| cds deploy --to hana | | Pending HANA |
-| HistoryEvents knowledge base seeded | | Pending HANA |
-| HANA Vector RAG (similarity search) | | Pending HANA |
+| HANA Cloud provisioned (with NLP enabled) | SAP BTP | Done ✅ |
+| HDI container mj-live-hdi created | SAP BTP | Done ✅ |
+| cds deploy --to hana:mj-live-hdi | HANA Cloud | Done ✅ |
+| CAP connected to HANA, ChronicleEvents persisting | HANA Cloud | Done ✅ |
+| HistoryEvents knowledge base seeded | | Pending |
+| HANA Vector RAG (similarity search) | | Pending |
 | LangChain relational reasoning (Mode 5) | | Pending |
 | Bridge → CAP auto-POST on transcript | | Pending |
 
@@ -456,6 +458,13 @@ cds watch
 curl -X POST http://localhost:4004/odata/v4/mj/receiveTranscript \
   -H "Content-Type: application/json" \
   -d '{"transcript":"rosa parks refuses to give up her seat 1955"}'
+```
+
+**Deploy schema to HANA:**
+```bash
+export PATH=$PATH:/c/cf-cli
+cf target -o 7f7132aetrial -s dev
+cds deploy --to hana:mj-live-hdi
 ```
 
 **CF CLI installed:** `C:\cf-cli\cf.exe`
