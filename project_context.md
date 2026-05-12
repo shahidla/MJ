@@ -376,7 +376,10 @@ That record is the difference between a developer who built something and an arc
 | CPI iFlow 1 — HTTPS sender /mj-transcript | SAP CPI | Done ✅ |
 | CPI iFlow 1 — Claude Haiku classification | SAP CPI | Done ✅ |
 | CPI iFlow 1 — Groovy Script JSON extraction | SAP CPI | Done ✅ |
-| CPI iFlow 1 — Solace REST publishing | SAP CPI → Solace REST | Testing |
+| CPI iFlow 1 — Solace REST publishing | SAP CPI → Solace REST | Known gap — see notes |
+| Consumer displays chronicle/event (emotion/year/event/insight) | `bridge/consumer.html` | Done ✅ |
+| Bridge /test-chronicle endpoint (test without ElevenLabs credits) | `bridge/index.js` | Done ✅ |
+| Bridge /chronicle-event POST endpoint (CPI relay when needed) | `bridge/index.js` | Done ✅ |
 | BTP CF deployment config | `bridge/manifest.yml` | Created |
 | vocals.mp3 — isolated vocal test track | `app/media/vocals.mp3` | Added |
 
@@ -419,13 +422,32 @@ HTTPS Sender (/mj-transcript)
 - Claude Opus/Sonnet reserved for Reflection Agent (Phase 6) and final insights
 - SAP AI Core not available on trial account
 
-### Exact Stopping Point — Where Phase 2b Continues
+### Phase 2b — What Is Working
 
-1. **Confirm Solace REST publishing from CPI** — verify chronicle/event arrives in Try Me! ← IN PROGRESS
-2. **Wire bridge → CPI** — when STT_ENABLED=true, bridge POSTs transcript to CPI endpoint after ElevenLabs returns it
-3. **Wire consumer to subscribe to chronicle/event from Solace** — display emotion + insight on screen
-4. **End-to-end test** — play audio → ElevenLabs → CPI → Claude → Solace → consumer displays
-5. **Deploy bridge to BTP CF** — then CPI calls bridge URL for any remaining HTTP needs
+```
+Producer plays audio
+  → EQ → Solace audio/equalizer → Consumer visualiser reacts ✅
+  → PCM → Solace audio/pcm (ready for CPI iFlow 1) ✅
+
+curl → CPI /mj-transcript → Claude Haiku → classifies emotion/year/event/insight ✅
+Bridge /test-chronicle → Solace chronicle/event → Consumer displays it ✅
+```
+
+### Known Gap — CPI REST → Solace direct
+
+CPI publishes to Solace via REST API but consumer does not receive it. Root cause: CPI REST publishes binary attachment format; consumer Solace JS SDK receives SDT container format from bridge. These differ in how the Solace broker delivers them.
+
+**Resolution:** When bridge deploys to BTP CF (Phase 7), CPI will POST to bridge `/chronicle-event` endpoint, bridge republishes to Solace using SDK (SDT format). Consumer receives correctly. This is the end state anyway.
+
+For now: use bridge `/test-chronicle` to test consumer display without ElevenLabs credits.
+
+### Exact Stopping Point — Where Phase 3 Begins
+
+1. **Wire bridge → CPI** — when STT_ENABLED=true, bridge POSTs ElevenLabs transcript to CPI endpoint automatically (currently manual curl)
+2. **Build CAP service** — Node.js CAP app, receives transcript from CPI, runs LangChain + Claude cognitive pipeline, queries HANA Vector RAG, persists to HANA, publishes chronicle/event to Solace
+3. **Provision HANA Vector** — load MJ history, HIStory song events, historical context
+4. **Wire consumer bottom panels** — chronicle accumulates, cognitive mode visible, reflection at end
+5. **Deploy everything to BTP CF** — bridge + CAP, single final push
 
 ### Locked Decisions
 - STT: ElevenLabs scribe_v2_realtime
