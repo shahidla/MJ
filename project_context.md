@@ -607,10 +607,26 @@ This is the single source of truth for what remains. Ordered by dependency — y
 
 ---
 
+### Session summary (2026-05-12) — what was completed today
+
+- Phase 7 complete: CAP + bridge both deployed to BTP CF and running
+- CAP start command fix: `cds-serve` (bin/serve.js in @sap/cds)
+- CAP auth fix: `cds.requires.auth.kind = "dummy"` (no XSUAA on trial)
+- Bridge Solace guard: graceful startup without credentials, then connects after `cf set-env`
+- Repo cleanup: 30 → 65 KB events; removed STT research files; renamed stt-all.js → stt.js
+- KB expanded: all 4 songs covered with real stats and attributed quotes
+- RAG context now visible in consumer: `heard` (raw STT) + `kb` (RAG result) per chronicle entry
+- `transcript` + `ragContext` added to Solace `chronicle/event` payload (was missing)
+- **Not yet deployed**: KB changes + consumer RAG display + mj-service.js payload fix — batch with embeddings tomorrow
+
+---
+
 ### Priority 1 — Foundation (blocks everything below)
 
-**1. Knowledge base expansion**
-- Current state: 30 events, focused on HIStory (1776–1997). Earth Song, They Don't Care About Us, Man in the Mirror have minimal or no coverage.
+**1. Knowledge base expansion — COMPLETE ✅**
+- 65 events across all 4 songs. HIStory 26 / They Don't Care 13 / Earth Song 14 / Man in the Mirror 12.
+- Real statistics throughout. Quotes attributed (Armstrong / RFK / JFK).
+- **Committed but not yet deployed to CF** — deploy with task 2+3 as one batch.
 - What to add: 10–15 events per song, covering the years/moments MJ sings about, plus key people who appear in the music videos (for RAG to surface them when the AI hears their names)
 - Songs to cover fully:
   - HIStory — already partially done, fill gaps
