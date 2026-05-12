@@ -131,6 +131,14 @@ app.get('/producer', (req, res) => res.sendFile(path.join(__dirname, 'producer.h
 app.get('/consumer', (req, res) => res.sendFile(path.join(__dirname, 'consumer.html')));
 app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, '../app/media/vocals.mp3')));
 app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, '../app/mj-audio-worklet.js')));
+app.get('/solace-client.js', (req, res) => res.sendFile(path.join(__dirname, 'node_modules/solclientjs/lib-browser/solclient.js')));
+app.get('/solace-config', (req, res) => res.json({
+  url:      process.env.SOLACE_URL,
+  vpn:      process.env.SOLACE_VPN,
+  username: process.env.SOLACE_USERNAME,
+  password: process.env.SOLACE_PASSWORD,
+  transport: TRANSPORT
+}));
 
 // HTTP fallbacks — support cached producer pages that still POST
 app.post('/eq', express.json(), (req, res) => {

@@ -165,6 +165,7 @@
 
 <div id="progress-bar"></div>
 
+<script src="/solace-client.js"></script>
 <script>
 const BRIDGE_WS = 'ws://localhost:3001';
 const FREQ_BINS = 128;
@@ -195,80 +196,118 @@ document.addEventListener('mousemove', e => {
   s.style.top = e.clientY + 'px';
 });
 
-// --- Bridge WebSocket ---
+// --- EQ + transcript handlers (shared) ---
 const wsStatus = document.getElementById('ws-status');
 
+function handleEqPayload(payload) {
+  const bars = payload.bars;
+  if (!bars) return;
+  const maxBar = Math.max(...bars);
+  document.getElementById('eq-debug').textContent = `EQ: ${++eqFrames} | max: ${maxBar}`;
+  const step = FREQ_BINS / bars.length;
+  for (let i = 0; i < FREQ_BINS; i++) {
+    freqData[i] = bars[Math.floor(i / step)] || 0;
+  }
+  const avg = bars.reduce((a, b) => a + b, 0) / bars.length;
+  for (let i = 0; i < FREQ_BINS; i++) {
+    timeData[i] = 128 + Math.round((Math.random() - 0.5) * avg * 0.4);
+  }
+  externalData = true;
+  lastFrameTs = Date.now();
+}
+
+function handleTranscript(text, isFinal) {
+  if (isFinal) {
+    pendingPartial = '';
+    const history = document.getElementById('transcript-history');
+    const line = document.createElement('div');
+    line.className = 'transcript-line';
+    line.textContent = text;
+    history.appendChild(line);
+    const lines = history.querySelectorAll('.transcript-line');
+    if (lines.length > 5) lines[0].remove();
+    history.querySelectorAll('.transcript-line').forEach((el, i, arr) => {
+      el.classList.toggle('old', i < arr.length - 1);
+    });
+  } else {
+    pendingPartial = text;
+  }
+  transcriptDirty = true;
+}
+
+// --- Bridge WebSocket (local transport or transcript fallback) ---
 function connectBridge() {
   const ws = new WebSocket(BRIDGE_WS);
-
   ws.onopen = () => {
     wsStatus.textContent = 'live';
     wsStatus.className = 'ok';
     document.getElementById('title').classList.add('playing');
     document.getElementById('subtitle').classList.add('playing');
   };
-
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.topic === 'audio/equalizer' && msg.data && msg.data.bars) {
-        const bars = msg.data.bars;
-        const maxBar = Math.max(...bars);
-        document.getElementById('eq-debug').textContent = `EQ: ${++eqFrames} | max: ${maxBar}`;
-        // Upsample 32 bars → FREQ_BINS by repeating each bar 4×
-        const step = FREQ_BINS / bars.length;
-        for (let i = 0; i < FREQ_BINS; i++) {
-          freqData[i] = bars[Math.floor(i / step)] || 0;
-        }
-        // Synthesise a flat waveform from energy for visual continuity
-        const avg = bars.reduce((a, b) => a + b, 0) / bars.length;
-        for (let i = 0; i < FREQ_BINS; i++) {
-          timeData[i] = 128 + Math.round((Math.random() - 0.5) * avg * 0.4);
-        }
-        externalData = true;
-        lastFrameTs = Date.now();
-
-        // Update progress bar if timestamp present
-        if (msg.data.ts != null && msg.data.duration) {
-          const pct = Math.min(msg.data.ts / msg.data.duration * 100, 100);
-          document.getElementById('progress-bar').style.width = pct + '%';
-        }
-      } else if (msg.topic === 'chronicle/transcript' && msg.data) {
-        const { text, isFinal } = msg.data;
-        if (isFinal) {
-          pendingPartial = '';
-          const history = document.getElementById('transcript-history');
-          const line = document.createElement('div');
-          line.className = 'transcript-line';
-          line.textContent = text;
-          history.appendChild(line);
-          const lines = history.querySelectorAll('.transcript-line');
-          if (lines.length > 5) lines[0].remove();
-          history.querySelectorAll('.transcript-line').forEach((el, i, arr) => {
-            el.classList.toggle('old', i < arr.length - 1);
-          });
-        } else {
-          pendingPartial = text;
-        }
-        transcriptDirty = true;
-      }
+      if (msg.topic === 'audio/equalizer' && msg.data) handleEqPayload(msg.data);
+      else if (msg.topic === 'chronicle/transcript' && msg.data)
+        handleTranscript(msg.data.text, msg.data.isFinal);
     } catch (_) {}
   };
-
   ws.onclose = () => {
     wsStatus.textContent = 'reconnecting...';
     wsStatus.className = 'err';
     externalData = false;
     setTimeout(connectBridge, 2000);
   };
-
-  ws.onerror = () => {
-    wsStatus.textContent = 'error';
-    wsStatus.className = 'err';
-  };
+  ws.onerror = () => { wsStatus.textContent = 'error'; wsStatus.className = 'err'; };
 }
 
-connectBridge();
+// --- Solace direct (transport=solace) ---
+function connectSolace(cfg) {
+  solace.SolclientFactory.init({ profile: solace.SolclientFactoryProfiles.version10 });
+  const session = solace.SolclientFactory.createSession({
+    url: cfg.url, vpnName: cfg.vpn, userName: cfg.username, password: cfg.password
+  });
+  session.on(solace.SessionEventCode.UP_NOTICE, () => {
+    wsStatus.textContent = 'solace live';
+    wsStatus.className = 'ok';
+    document.getElementById('title').classList.add('playing');
+    document.getElementById('subtitle').classList.add('playing');
+    session.subscribe(
+      solace.SolclientFactory.createTopicDestination('audio/equalizer'),
+      true, 'audio/equalizer', 1000
+    );
+    // chronicle/event will be subscribed here when CAP publishes to Solace
+  });
+  session.on(solace.SessionEventCode.MESSAGE, (msg) => {
+    try {
+      const payload = JSON.parse(msg.getSdtContainer().getValue());
+      handleEqPayload(payload);
+    } catch (_) {}
+  });
+  session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (e) => {
+    wsStatus.textContent = 'solace error';
+    wsStatus.className = 'err';
+    console.error('Solace consumer error:', e.infoStr);
+  });
+  session.connect();
+}
+
+// --- Bootstrap ---
+async function bootstrap() {
+  try {
+    const cfg = await fetch('/solace-config').then(r => r.json());
+    if (cfg.transport === 'solace') {
+      connectSolace(cfg);  // EQ direct from Solace
+      connectBridge();      // transcripts still via bridge until CAP is built
+    } else {
+      connectBridge();
+    }
+  } catch (e) {
+    connectBridge();
+  }
+}
+
+bootstrap();
 
 // ============ VISUALIZER ============
 
