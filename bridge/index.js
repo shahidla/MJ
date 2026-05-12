@@ -19,6 +19,10 @@ console.log(`Transport mode: ${TRANSPORT}`);
 let solaceConnected = false;
 
 function connectSolace() {
+  if (!process.env.SOLACE_URL || !process.env.SOLACE_VPN) {
+    console.warn('Solace credentials not set — bridge starting without Solace connection');
+    return null;
+  }
   const solace = require('solclientjs');
   solace.SolclientFactory.init({ profile: solace.SolclientFactoryProfiles.version10 });
 
