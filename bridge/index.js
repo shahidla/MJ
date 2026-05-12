@@ -5,8 +5,7 @@ const { WebSocketServer } = require('ws');
 const EventEmitter = require('events');
 const path = require('path');
 
-// OpenAI STT comparison — all 4 models in parallel
-const sttAll = require('./stt-all');
+const sttAll = require('./stt');
 
 const app = express();
 const server = http.createServer(app);
