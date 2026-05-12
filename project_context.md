@@ -440,7 +440,8 @@ HTTPS Sender (/mj-transcript)
 | HistoryEvents knowledge base seeded (30 events) | `db/data/mj-HistoryEvents.csv` | Done ✅ |
 | HANA keyword RAG (headline + context search) | `srv/mj-service.js` | Done ✅ |
 | Bridge → CAP auto-POST on committed_transcript | `bridge/stt-all.js` | Done ✅ |
-| LangChain relational reasoning (Mode 5) | | Phase 4 |
+| Temporal Memory (Mode 4) — structured session memory across all acts | `srv/mj-service.js` | Done ✅ |
+| Relational Reasoning (Mode 5) — AI connects figures/events across acts | `srv/mj-service.js` | Done ✅ |
 | CPI iFlow updated — POST raw transcript to CAP (remove Claude from CPI) | | Phase 4 |
 
 **CAP endpoints (local):**
