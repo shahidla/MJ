@@ -465,6 +465,9 @@
     <div class="cognitive-mode" id="mode-3">03 — RAG RETRIEVAL</div>
     <div class="cognitive-mode" id="mode-4">04 — TEMPORAL MEMORY</div>
     <div class="cognitive-mode" id="mode-5">05 — RELATIONAL REASONING</div>
+    <div class="cognitive-mode" id="mode-6">06 — REFLECTIVE EVALUATION</div>
+    <div class="cognitive-mode" id="mode-7">07 — PATTERN SYNTHESIS</div>
+    <div class="cognitive-mode" id="mode-8">08 — GENERATIVE EXPRESSION</div>
     <div id="emotion-bar-panel">
       <div class="emotion-row">
         <div class="emotion-label">wonder</div>
@@ -589,12 +592,16 @@ function updateEmotionBars(emotionText) {
   });
 }
 
+function activateMode(id, durationMs) {
+  const el = document.getElementById(id);
+  el.classList.remove('done');
+  el.classList.add('active');
+  if (durationMs) setTimeout(() => el.classList.replace('active', 'done'), durationMs);
+}
+
 function animateCognitiveModes(callback) {
   const modes = ['mode-1','mode-2','mode-3','mode-4','mode-5'];
-  modes.forEach(id => {
-    const el = document.getElementById(id);
-    el.classList.remove('active','done');
-  });
+  modes.forEach(id => document.getElementById(id).classList.remove('active','done'));
   let i = 0;
   function next() {
     if (i > 0) document.getElementById(modes[i-1]).classList.replace('active','done');
@@ -652,21 +659,21 @@ function addChronicleEntry(payload) {
 }
 
 function handleReflection(payload) {
+  activateMode('mode-6', 6000);
   const panel = document.getElementById('reflection-panel');
   document.getElementById('reflection-text').textContent = payload.sentence || '';
   panel.classList.add('visible');
-  // Hold for 6 seconds then fade out
   setTimeout(() => panel.classList.remove('visible'), 6000);
 }
 
 function handleFinale(payload) {
+  activateMode('mode-7', 4000);
+  setTimeout(() => activateMode('mode-8'), 4000);
   const reflection = payload.reflection || '';
-  // Split off the last line "Did we change?" if Claude included it
   const lines = reflection.replace(/Did we change\??\s*$/i, '').trim();
   document.getElementById('finale-text').textContent = lines;
   const panel = document.getElementById('finale-panel');
   panel.classList.add('visible');
-  // Reveal "Did we change?" after 4 seconds
   setTimeout(() => {
     document.getElementById('finale-closing').classList.add('visible');
   }, 4000);
