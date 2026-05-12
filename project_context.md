@@ -607,6 +607,118 @@ This is the single source of truth for what remains. Ordered by dependency — y
 
 ---
 
+---
+
+## Full Code Review Findings (2026-05-12)
+
+Complete pass through all project files. Grouped by file and severity.
+
+---
+
+### consumer.html
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| C1 | Title hardcoded `BILLIE JEAN` (line 451), subtitle `Michael Jackson — Thriller` | Bug | Change to `MJ LIVE` / `humanity's journey` or make dynamic |
+| C2 | `Share Tech Mono` used in `.ce-heard` and `.ce-rag` but NOT imported in Google Fonts (line 8) | Bug | Add to `@import` — currently falls back to browser default monospace |
+| C3 | `BRIDGE_WS = 'ws://localhost:3001'` hardcoded (line 520) | Bug | Must be dynamic — use `window.location.host` with ws/wss based on protocol |
+| C4 | `connectBridge()` called in Solace mode (line 804) with stale comment "until CAP is built" — CAP IS built | Bug | Remove bridge WS call when transport=solace; it throws errors on CF |
+| C5 | `#eq-debug` div always visible showing raw EQ frame count | Polish | Hide in production or move to status overlay |
+| C6 | Progress bar CSS defined (lines 420–430) but JS never updates `#progress-bar` width | Dead code | Either wire it to audio playback time or remove it |
+| C7 | No emotion shown per chronicle entry — emotion tracked in bars on left but not per-event | UX gap | Add small coloured emotion chip/word to each chronicle entry |
+| C8 | `heard` text truncated at 120 chars — may cut off mid-sentence mid-year | UX | Increase to 200 or truncate at word boundary |
+| C9 | Chronicle panel will overflow with heard + kb added — 4 entries at 38vh is now cramped | Layout | Reduce to 3 entries max, or increase panel height |
+| C10 | `#spotlight` only moves on `mousemove` — does not react to audio energy | Polish | Could make it pulse with beat |
+| C11 | Solace subscription errors logged to console only — no UI feedback if a topic fails | Debug | Acceptable for now |
+
+---
+
+### bridge/index.js
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| B1 | `stt` module required unconditionally (line 8) even in Solace mode where it is never called | Waste | Conditionally require only when `TRANSPORT !== 'solace'` |
+| B2 | STT `init()` only called when `TRANSPORT !== 'solace'` (line 204) — but STT should be independent of transport. In final arch: Solace transport + STT enabled = both running simultaneously | Bug | Decouple STT init from transport check |
+| B3 | `/test-chronicle` hardcoded payload (line 182) missing `transcript` and `ragContext` fields — consumer will show empty `heard ·` and `kb ·` rows | Bug | Add dummy transcript and ragContext to test payload |
+| B4 | `/solace-config` endpoint exposes Solace credentials to any browser without auth (line 138–144) | Security | Acceptable for demo; for production use env-injected config at build time |
+| B5 | No CORS headers on any endpoint | Architecture | Bridge serves producer.html/consumer.html on same origin so not an issue; only matters if CAP is called cross-origin |
+| B6 | `BRIDGE_HTTP = 'http://localhost:3001'` defined in producer.html but unused | Dead code | Remove |
+
+---
+
+### bridge/stt.js
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| S1 | Comment on line 1 still says `stt-all.js` (old filename before rename) | Minor | Update comment |
+| S2 | References `ATEST/ELEVENLABS_STT_FEASIBILITY.md` in comment (line 3) — file was deleted | Minor | Update comment |
+| S3 | `LOG_FILE` writes `transcripts-elevenlabs.log` to bridge directory — on CF this creates a file in the app container | Minor | Acceptable; file is transient and not committed |
+| S4 | No retry cap on reconnect — if ElevenLabs is down it retries every 3–5s forever | Minor | Add max retry count or backoff |
+| S5 | `forwardToCAP` silently drops if CAP returns non-200 — no retry | Minor | Add one retry for transient CAP errors |
+
+---
+
+### srv/mj-service.js
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| M1 | `keyFigures` tracking list hardcoded to 8 names (line 53–54): MLK, Rosa Parks, Edison, Neil Armstrong, Kennedy, Mandela, Jackie Robinson, Gandhi — misses all new KB figures: Mother Teresa, Chico Mendes, Ryan White, Desmond Tutu, Gandhi, Tank Man, Bob Geldof, etc. | Gap | Expand list to match KB coverage |
+| M2 | SQL injection in `ragRetrieve` (lines 147–148): transcript words injected directly into SQL string with `LIKE '%${w}%'` — a crafted transcript could execute arbitrary SQL | Security | Use parameterised queries or sanitise words to `[a-z0-9]` only before interpolation |
+| M3 | `actNumber` always stored as `0` (line 302) — never populated | Gap | Derive from dominant emotion: wonder=1, anger=2, grief=3, hope=4 |
+| M4 | `sessionMemory` is module-level in-process state — resets on CF app restart | Architecture | Acceptable for demo; add a `/resetSession` endpoint to reset intentionally before each demo run |
+| M5 | No Solace reconnect logic — if Solace disconnects, CAP never reconnects | Bug | Add reconnect on `DISCONNECTED` event with backoff |
+| M6 | `generateFinale` builds `allInsights` with no length limit — with 65 events in a long session this could exceed Claude context or produce very slow responses | Risk | Cap at last 20 events or summarise earlier acts |
+| M7 | `buildMemoryContext()` included twice in `generateFinale` prompt (lines 258 and 260) — `memoryContext` is built then `${buildMemoryContext()}` called again | Bug | Remove the second call, use the `memoryContext` variable |
+| M8 | Reflection uses Haiku (via `getModel()`) — fine for between-act sentences, intentional | OK | No change |
+| M9 | Model name `claude-haiku-4-5-20251001` — confirm this is still a valid model ID | Check | Verify against Anthropic API docs |
+| M10 | Prompt says `"You are an AI witnessing humanity's journey through Michael Jackson's music"` — MJ-specific. Universal pipeline claim says AI doesn't know it's MJ | Design tension | Discussed — keep for now, review later |
+
+---
+
+### bridge/producer.html
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| P1 | `BRIDGE_WS = 'ws://localhost:3001?role=producer'` hardcoded (line 47) | Bug | Make dynamic using `window.location` — `ws://${window.location.host}?role=producer` |
+| P2 | `captureStream()` is Chrome-only — Safari and Firefox will throw | Browser compat | Acceptable for demo (Chrome only); add browser check with message |
+| P3 | Audio src `/audio-file` serves `vocals.mp3` — correct for now but needs to serve the 4-song demo file | Pending | Update when 4-song audio is ready |
+
+---
+
+### Architecture-level findings
+
+| # | Issue | Severity |
+|---|-------|----------|
+| A1 | No session reset mechanism — in-memory `sessionMemory` accumulates across multiple demo runs on the same CF instance. Second demo run will have wrong emotional arc and key figure history from first run | Critical for demo |
+| A2 | `actNumber` is always 0 — act detection logic exists (`detectActTransition`) but the detected act number is never written back to the persisted event | Gap |
+| A3 | Vector embeddings: `embedding` column is `LargeString` not a proper HANA vector type — will need schema migration when we switch to VECTOR_SEARCH | Technical debt |
+| A4 | CPI iFlow still calls Claude directly and posts to Solace (bypassing CAP) — unresolved | Pending task 4 |
+| A5 | The `keyFigures` in sessionMemory is a fixed list — any figure not in the list is invisible to relational reasoning even if the AI detected them | Gap |
+
+---
+
+### Priority fix order (for next session)
+
+**Must fix before deploy:**
+1. C3 — `ws://localhost` in consumer → dynamic
+2. P1 — `ws://localhost` in producer → dynamic  
+3. C4 — remove dead `connectBridge()` in Solace mode
+4. C2 — import Share Tech Mono font
+5. C1 — fix hardcoded "BILLIE JEAN" title
+6. B3 — fix `/test-chronicle` missing transcript/ragContext fields
+7. M5 — add Solace reconnect in CAP
+8. M7 — remove duplicate `buildMemoryContext()` call in finale prompt
+9. A1 — add `/resetSession` endpoint to CAP
+10. M3 — derive actNumber from emotion (wonder=1, anger=2, grief=3, hope=4)
+
+**Fix soon but not blocking deploy:**
+11. M1 — expand keyFigures list
+12. M2 — sanitise SQL words in ragRetrieve
+13. C7 — emotion chip on chronicle entry
+14. C9 — cap at 3 entries in chronicle panel
+
+---
+
 ### Session summary (2026-05-12) — what was completed today
 
 - Phase 7 complete: CAP + bridge both deployed to BTP CF and running
