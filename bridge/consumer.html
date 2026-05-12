@@ -120,51 +120,202 @@
     color: rgba(255,255,255,0.35);
   }
 
-  #chronicle-panel {
+  /* ── Bottom panels ────────────────────────────────────────────────── */
+  #bottom-panels {
     position: fixed;
-    bottom: 160px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 80px;
+    left: 0;
+    right: 0;
     z-index: 40;
-    width: 70vw;
-    text-align: center;
+    display: flex;
+    gap: 0;
     pointer-events: none;
+    height: 38vh;
   }
 
-  #chronicle-emotion {
+  /* Left — cognitive mode indicator */
+  #cognitive-panel {
+    width: 28vw;
+    padding: 0 2vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  #cognitive-label {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: clamp(11px, 1.4vw, 16px);
-    letter-spacing: 4px;
-    color: rgba(201,168,76,0.6);
+    font-size: clamp(10px, 1.1vw, 13px);
+    letter-spacing: 3px;
+    color: rgba(201,168,76,0.5);
     text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-
-  #chronicle-year {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(32px, 6vw, 80px);
-    letter-spacing: 12px;
-    color: rgba(255,255,255,0.9);
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-
-  #chronicle-event {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(13px, 1.8vw, 20px);
-    letter-spacing: 2px;
-    color: rgba(255,255,255,0.7);
     margin-bottom: 6px;
   }
 
-  #chronicle-insight {
+  .cognitive-mode {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(11px, 1.3vw, 16px);
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.2);
+    transition: color 0.4s ease, opacity 0.4s ease;
+    padding: 2px 0;
+  }
+
+  .cognitive-mode.active {
+    color: rgba(201,168,76,0.9);
+  }
+
+  .cognitive-mode.done {
+    color: rgba(255,255,255,0.45);
+  }
+
+  #emotion-bar-panel {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .emotion-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .emotion-label {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: clamp(11px, 1.3vw, 15px);
-    letter-spacing: 1px;
+    font-size: clamp(9px, 1vw, 12px);
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+    width: 60px;
+    text-align: right;
+  }
+
+  .emotion-bar-bg {
+    flex: 1;
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .emotion-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 1px;
+    transition: width 1.2s ease;
+  }
+
+  /* Centre — year reveal */
+  #year-panel {
+    width: 44vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 12px;
+  }
+
+  #year-reveal {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(60px, 10vw, 140px);
+    letter-spacing: 16px;
+    color: rgba(255,255,255,0.0);
+    line-height: 1;
+    transition: color 1.5s ease, transform 1.2s cubic-bezier(0.16,1,0.3,1);
+    transform: translateY(20px);
+    text-shadow: 0 0 40px rgba(201,168,76,0);
+  }
+
+  #year-reveal.visible {
+    color: rgba(255,255,255,0.92);
+    transform: translateY(0);
+    text-shadow: 0 0 40px rgba(201,168,76,0.3);
+  }
+
+  #year-event {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(12px, 1.6vw, 18px);
+    letter-spacing: 2px;
+    color: rgba(201,168,76,0.7);
+    text-align: center;
+    margin-top: 6px;
+    max-width: 36vw;
+    min-height: 1.4em;
+    transition: opacity 0.8s ease;
+  }
+
+  /* Right — chronicle accumulates */
+  #chronicle-panel {
+    width: 28vw;
+    padding: 0 2vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  #chronicle-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(10px, 1.1vw, 13px);
+    letter-spacing: 3px;
     color: rgba(201,168,76,0.5);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  #chronicle-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    max-height: 32vh;
+  }
+
+  .chronicle-entry {
+    opacity: 0;
+    transform: translateX(10px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+
+  .chronicle-entry.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .chronicle-entry.faded {
+    opacity: 0.3;
+  }
+
+  .ce-year {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(13px, 1.6vw, 20px);
+    letter-spacing: 5px;
+    color: rgba(201,168,76,0.8);
+    line-height: 1;
+  }
+
+  .ce-event {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(10px, 1.1vw, 13px);
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 2px;
+  }
+
+  .ce-insight {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(9px, 0.95vw, 11px);
+    letter-spacing: 0.5px;
+    color: rgba(201,168,76,0.4);
+    margin-top: 2px;
   }
 
   #progress-bar {
@@ -205,11 +356,48 @@
 <div id="ws-status">connecting...</div>
 <div id="eq-debug" style="position:fixed;top:28px;right:16px;z-index:40;font-size:11px;letter-spacing:2px;color:#c9a84c;opacity:0.7;">EQ: 0 | max: 0</div>
 
-<div id="chronicle-panel">
-  <div id="chronicle-emotion"></div>
-  <div id="chronicle-year"></div>
-  <div id="chronicle-event"></div>
-  <div id="chronicle-insight"></div>
+<div id="bottom-panels">
+
+  <!-- Left: Cognitive mode indicator -->
+  <div id="cognitive-panel">
+    <div id="cognitive-label">AI Cognitive Pipeline</div>
+    <div class="cognitive-mode" id="mode-1">01 — PERCEPTION</div>
+    <div class="cognitive-mode" id="mode-2">02 — CLASSIFICATION</div>
+    <div class="cognitive-mode" id="mode-3">03 — RAG RETRIEVAL</div>
+    <div class="cognitive-mode" id="mode-4">04 — TEMPORAL MEMORY</div>
+    <div class="cognitive-mode" id="mode-5">05 — RELATIONAL REASONING</div>
+    <div id="emotion-bar-panel">
+      <div class="emotion-row">
+        <div class="emotion-label">wonder</div>
+        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-wonder" style="background:#c9a84c"></div></div>
+      </div>
+      <div class="emotion-row">
+        <div class="emotion-label">grief</div>
+        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-grief" style="background:#4a7c9e"></div></div>
+      </div>
+      <div class="emotion-row">
+        <div class="emotion-label">anger</div>
+        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-anger" style="background:#c0392b"></div></div>
+      </div>
+      <div class="emotion-row">
+        <div class="emotion-label">hope</div>
+        <div class="emotion-bar-bg"><div class="emotion-bar-fill" id="bar-hope" style="background:#27ae60"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Centre: Year reveal -->
+  <div id="year-panel">
+    <div id="year-reveal"></div>
+    <div id="year-event"></div>
+  </div>
+
+  <!-- Right: Chronicle accumulates -->
+  <div id="chronicle-panel">
+    <div id="chronicle-label">The Chronicle</div>
+    <div id="chronicle-entries"></div>
+  </div>
+
 </div>
 
 <div id="transcript-panel">
@@ -270,11 +458,96 @@ function handleEqPayload(payload) {
   lastFrameTs = Date.now();
 }
 
+// Emotion weights per label keyword
+const EMOTION_MAP = {
+  wonder: ['wonder','awe','hopeful','visionary','amazement','pride'],
+  grief:  ['grief','despair','sorrow','anguish','mourning','chaos','devastation'],
+  anger:  ['anger','defiance','injustice','rage','resistance','fury'],
+  hope:   ['hope','determination','transformation','change','renewal','redemption']
+};
+
+const emotionScores = { wonder: 0, grief: 0, anger: 0, hope: 0 };
+
+function updateEmotionBars(emotionText) {
+  if (!emotionText) return;
+  const lower = emotionText.toLowerCase();
+  Object.entries(EMOTION_MAP).forEach(([key, keywords]) => {
+    if (keywords.some(k => lower.includes(k))) {
+      emotionScores[key] = Math.min(100, emotionScores[key] + 30);
+    } else {
+      emotionScores[key] = Math.max(0, emotionScores[key] - 5);
+    }
+    document.getElementById(`bar-${key}`).style.width = emotionScores[key] + '%';
+  });
+}
+
+function animateCognitiveModes(callback) {
+  const modes = ['mode-1','mode-2','mode-3','mode-4','mode-5'];
+  modes.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+  });
+  let i = 0;
+  function next() {
+    if (i > 0) document.getElementById(modes[i-1]).classList.replace('active','done');
+    if (i < modes.length) {
+      document.getElementById(modes[i]).classList.add('active');
+      i++;
+      setTimeout(next, 380);
+    } else {
+      setTimeout(callback, 200);
+    }
+  }
+  next();
+}
+
+function revealYear(year, event) {
+  const yearEl = document.getElementById('year-reveal');
+  const eventEl = document.getElementById('year-event');
+  yearEl.classList.remove('visible');
+  eventEl.style.opacity = '0';
+  setTimeout(() => {
+    yearEl.textContent = year || '';
+    eventEl.textContent = event || '';
+    if (year) {
+      yearEl.classList.add('visible');
+      setTimeout(() => { eventEl.style.opacity = '1'; }, 400);
+    }
+  }, 300);
+}
+
+function addChronicleEntry(payload) {
+  const container = document.getElementById('chronicle-entries');
+  // Fade all existing entries
+  container.querySelectorAll('.chronicle-entry.visible')
+    .forEach(el => el.classList.add('faded'));
+
+  const entry = document.createElement('div');
+  entry.className = 'chronicle-entry';
+  entry.innerHTML = `
+    <div class="ce-year">${payload.year || '—'}</div>
+    <div class="ce-event">${payload.event || ''}</div>
+    <div class="ce-insight">${payload.insight || ''}</div>
+  `;
+  container.appendChild(entry);
+
+  // Keep last 4 entries
+  const entries = container.querySelectorAll('.chronicle-entry');
+  if (entries.length > 4) entries[0].remove();
+
+  // Animate in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => entry.classList.add('visible'));
+  });
+}
+
 function handleChronicleEvent(payload) {
-  if (payload.emotion) document.getElementById('chronicle-emotion').textContent = payload.emotion;
-  if (payload.year)    document.getElementById('chronicle-year').textContent = payload.year;
-  if (payload.event)   document.getElementById('chronicle-event').textContent = payload.event;
-  if (payload.insight) document.getElementById('chronicle-insight').textContent = payload.insight;
+  // Animate cognitive pipeline first, then reveal results
+  animateCognitiveModes(() => {
+    revealYear(payload.year, payload.event);
+    addChronicleEntry(payload);
+    updateEmotionBars(payload.emotion);
+  });
 }
 
 function handleTranscript(text, isFinal) {

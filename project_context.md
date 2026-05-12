@@ -309,7 +309,7 @@ One demo. One blog post with sections. Not eight separate posts.
 | 2b | Solace transport live, CPI iFlow 1, Consumer chronicle/event | COMPLETE ✅ | The Brain |
 | 3 | CAP cognitive pipeline, HANA RAG knowledge base (30 events), bridge→CAP auto-POST | COMPLETE ✅ | The Memory |
 | 4 | Temporal Memory + Relational Reasoning across acts (Modes 4+5) | COMPLETE ✅ | The Reasoning |
-| 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | NEXT | The Chronicle |
+| 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | IN PROGRESS ✅ | The Chronicle |
 | 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | Pending | The Conscience |
 | 7 | Deploy bridge + CAP to BTP CF, architecture diagram, demo video | Pending | The Tribute |
 
