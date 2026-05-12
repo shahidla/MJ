@@ -164,6 +164,12 @@ app.post('/audio', express.raw({ type: 'application/octet-stream', limit: '2mb' 
   res.status(204).end();
 });
 
+app.get('/test-publish', (req, res) => {
+  const testPayload = { test: true, source: 'bridge', ts: new Date().toISOString(), msg: 'hello from bridge' };
+  publish('test/bridge', testPayload);
+  res.json({ published: true, topic: 'test/bridge', payload: testPayload });
+});
+
 app.get('/status', (req, res) => {
   res.json({
     transport: TRANSPORT,

@@ -357,17 +357,26 @@ That record is the difference between a developer who built something and an arc
 
 ### Phase 1 — COMPLETE
 ### Phase 2a — COMPLETE
+### Phase 2b — IN PROGRESS
 
-| What | File | Status |
-|------|------|--------|
+| What | File/Location | Status |
+|------|--------------|--------|
 | Node.js bridge — dual transport | `bridge/index.js` | Done |
 | Producer HTML — native audio + separate 16kHz PCM capture | `bridge/producer.html` | Done |
 | AudioWorklet PCM16 capture (200ms chunks, setInterval EQ) | `bridge/producer.html` | Done |
 | ElevenLabs scribe_v2_realtime — primary STT | `bridge/stt-all.js` | Done |
-| STT_ENABLED flag — off by default to preserve API credits | `.env` + `bridge/stt-all.js` | Done |
-| Consumer HTML — WebGL visualizer + transcript panel (RAF-driven) | `bridge/consumer.html` | Done |
-| Local mock transport (EventEmitter + ws) | `bridge/index.js` | Working |
-| Solace transport (solclientjs) | `bridge/index.js` | Code complete — test next |
+| STT_ENABLED flag — off by default | `.env` | Done |
+| Consumer HTML — WebGL visualizer + transcript panel | `bridge/consumer.html` | Done |
+| TRANSPORT=solace — verified working | `.env` | Done ✅ |
+| EQ flowing via Solace audio/equalizer | bridge → Solace → consumer | Done ✅ |
+| PCM flowing via Solace audio/pcm | bridge → Solace | Done ✅ |
+| Consumer subscribes to Solace audio/equalizer directly | `bridge/consumer.html` (Solace JS SDK) | Done ✅ |
+| Bridge serves Solace JS SDK + /solace-config endpoint | `bridge/index.js` | Done ✅ |
+| CPI package created | SAP BTP Integration Suite | Done ✅ |
+| CPI iFlow 1 — HTTPS sender /mj-transcript | SAP CPI | Done ✅ |
+| CPI iFlow 1 — Claude Haiku classification | SAP CPI | Done ✅ |
+| CPI iFlow 1 — Groovy Script JSON extraction | SAP CPI | Done ✅ |
+| CPI iFlow 1 — Solace REST publishing | SAP CPI → Solace REST | Testing |
 | BTP CF deployment config | `bridge/manifest.yml` | Created |
 | vocals.mp3 — isolated vocal test track | `app/media/vocals.mp3` | Added |
 
@@ -376,40 +385,60 @@ That record is the difference between a developer who built something and an arc
 - `http://localhost:3001/consumer` — concert visualizer + live lyrics transcript panel
 - `http://localhost:3001/status` — health check
 
-**Start bridge:**
-```bash
-cd bridge
-npm install
-node index.js
+**CPI iFlow 1 endpoint:**
+- `https://7f7132aetrial.it-cpitrial06-rt.cfapps.us10-001.hana.ondemand.com/http/mj-transcript`
+- Auth: Basic (BTP trial credentials)
+- Input: plain text transcript
+- Output: publishes chronicle/event to Solace REST
+
+**CPI iFlow 1 structure:**
+```
+HTTPS Sender (/mj-transcript)
+  → Content Modifier (sets x-api-key, anthropic-version headers + Claude request body)
+  → Request Reply → Claude API (claude-haiku-4-5-20251001)
+  → Groovy Script (extracts clean JSON from Claude response)
+  → Request Reply → Solace REST API (chronicle/event topic)
 ```
 
-**STT flag — important:**
-- `STT_ENABLED=false` (default) — ElevenLabs not called, no API credits consumed
-- `STT_ENABLED=true` — enables ElevenLabs scribe_v2_realtime for transcription testing
-- Set in `.env` before starting bridge
+**Claude output schema (locked):**
+```json
+{"emotion": "", "year": "", "event": "", "insight": "one sentence"}
+```
+**"act" field removed** — AI must NOT detect which song is playing. Act detection from hardcoded song names breaks the universal pipeline principle ("The AI does not know it is listening to Michael Jackson"). The act is not needed — emotion + insight are sufficient for the consumer to react.
 
-**STT decisions (locked 2026-05-12):**
-- ElevenLabs `scribe_v2_realtime` selected over Groq, Deepgram nova-2/3, AssemblyAI whisper-rt, OpenAI whisper-1/gpt-4o — best transcription of singing by significant margin
-- Confirmed via ELEVENLABS_STT_FEASIBILITY.md in repo root
-- All other STT services commented in `bridge/stt-all.js` with notes
+**Solace REST publishing URL:**
+`https://mr-connection-rcgt0ju559a.messaging.solace.cloud:9443/mj-live/TOPIC/chronicle/event`
 
-### Exact Stopping Point — Where Phase 2b Begins
+**STT decisions (locked):**
+- ElevenLabs `scribe_v2_realtime` — best transcription of singing by significant margin
+- `STT_ENABLED=false` during development to preserve API credits
+- All other STT tested: Groq whisper-large-v3 (best batch), Deepgram nova-2/3, AssemblyAI whisper-rt, OpenAI whisper-1/gpt-4o/realtime, NVIDIA Parakeet (Gradio Space broken)
 
-1. **Test TRANSPORT=solace** — set `TRANSPORT=solace` in `.env`, run bridge on personal laptop (no corp DNS), verify EQ + PCM16 flow through Solace broker.
-2. **Build CPI iFlow 1** — subscribe `audio/pcm` from Solace → call ElevenLabs scribe_v2_realtime → POST transcript to CAP.
-3. **Build CAP service** — receive transcript, run LangChain + Claude cognitive pipeline, query HANA Vector RAG, persist to HANA, publish `chronicle/event` to Solace.
-4. **Wire consumer bottom panels** — receive `chronicle/event`, render cognitive mode + chronicle + closing reflection.
-5. **Test locally end-to-end**, then deploy bridge + CAP to BTP CF.
+**LLM decision (locked):**
+- Claude Haiku (`claude-haiku-4-5-20251001`) in CPI — cheapest, sufficient for classification
+- Claude Opus/Sonnet reserved for Reflection Agent (Phase 6) and final insights
+- SAP AI Core not available on trial account
+
+### Exact Stopping Point — Where Phase 2b Continues
+
+1. **Confirm Solace REST publishing from CPI** — verify chronicle/event arrives in Try Me! ← IN PROGRESS
+2. **Wire bridge → CPI** — when STT_ENABLED=true, bridge POSTs transcript to CPI endpoint after ElevenLabs returns it
+3. **Wire consumer to subscribe to chronicle/event from Solace** — display emotion + insight on screen
+4. **End-to-end test** — play audio → ElevenLabs → CPI → Claude → Solace → consumer displays
+5. **Deploy bridge to BTP CF** — then CPI calls bridge URL for any remaining HTTP needs
 
 ### Locked Decisions
-- STT: ElevenLabs scribe_v2_realtime (in CPI iFlow 1)
-- LLM: Claude API (Anthropic direct) — SAP AI Core not available on trial
-- Test fully local first, then single final BTP CF push
-- STT_ENABLED=false during development to preserve ElevenLabs credits
+- STT: ElevenLabs scribe_v2_realtime
+- LLM: Claude Haiku (CPI classification), Claude Opus/Sonnet (Reflection Agent)
+- CPI publishes to Solace via REST API (not AMQP — AMQP adapter not available for publishing in trial)
+- Act detection: REMOVED — Claude classifies emotion from content only, no hardcoded song names
+- Consumer subscribes to Solace directly (Solace JS SDK) — bridge not in the path
+- STT_ENABLED=false during development
 
 ### Open Questions
 - BTP CF org/space name for `cf push`
 - HANA Vector knowledge base content — MJ history, song meanings, HIStory dates
+- LangChain vs direct Claude calls for Phase 3 cognitive pipeline (still to decide)
 
 ---
 
