@@ -1,0 +1,19 @@
+applications:
+  - name: mj-live-cap
+    memory: 512M
+    instances: 1
+    path: gen/srv
+    buildpacks:
+      - nodejs_buildpack
+    command: npm start
+    # cds-serve is the production binary from @sap/cds (no @sap/cds-dk needed)
+    services:
+      - mj-live-hdi
+    env:
+      NODE_ENV: production
+    # Set credentials via cf set-env
+    # cf set-env mj-live-cap ANTHROPIC_API_KEY <key>
+    # cf set-env mj-live-cap SOLACE_URL wss://mr-connection-rcgt0ju559a.messaging.solace.cloud:443
+    # cf set-env mj-live-cap SOLACE_VPN mj-live
+    # cf set-env mj-live-cap SOLACE_USERNAME solace-cloud-client
+    # cf set-env mj-live-cap SOLACE_PASSWORD <password>

@@ -311,7 +311,7 @@ One demo. One blog post with sections. Not eight separate posts.
 | 4 | Temporal Memory + Relational Reasoning across acts (Modes 4+5) | COMPLETE ✅ | The Reasoning |
 | 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | COMPLETE ✅ | The Chronicle |
 | 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | COMPLETE ✅ | The Conscience |
-| 7 | Deploy bridge + CAP to BTP CF, architecture diagram, demo video | Pending | The Tribute |
+| 7 | Deploy bridge + CAP to BTP CF, architecture diagram, demo video | IN PROGRESS | The Tribute |
 
 ---
 
@@ -555,6 +555,43 @@ curl transcript
 - BTP CF org/space name for `cf push`
 - HANA Vector knowledge base content — MJ history, song meanings, HIStory dates
 - LangChain vs direct Claude calls for Phase 3 cognitive pipeline (still to decide)
+
+---
+
+### Phase 7 — IN PROGRESS (2026-05-12)
+
+**Goal:** Deploy bridge + CAP to BTP Cloud Foundry.
+
+**CAP start command — resolved:**
+
+Root cause of repeated CF staging failures: the `@sap/cds/bin/` directory contains `serve.js`, `deploy.js`, `args.js`, `colors.js` — no bare `cds` binary.
+
+The correct production start command is `cds-serve`, which is a standalone binary entry point in `@sap/cds/package.json`:
+```json
+"bin": {
+  "cds-deploy": "bin/deploy.js",
+  "cds-serve":  "bin/serve.js"
+}
+```
+
+When CF's nodejs buildpack runs `npm install`, it creates `node_modules/.bin/cds-serve` pointing to `bin/serve.js`. `@sap/cds-dk` (which provides the full `cds` CLI) is **not** needed in production.
+
+**Fix applied:**
+- `package.json` (root + gen/srv): `"start": "cds-serve"`
+- `manifest.yml` (CAP): `command: npm start`
+- `cds build --production` re-run — clean build confirmed
+
+**CF env vars already set on mj-live-cap:**
+- `ANTHROPIC_API_KEY`
+- `SOLACE_URL`, `SOLACE_VPN`, `SOLACE_USERNAME`, `SOLACE_PASSWORD`
+
+**Next steps for Phase 7:**
+1. `cf push` from MJ root (uses manifest.yml, path: gen/srv) — verify CAP starts
+2. `cf push` from bridge/ directory — deploy bridge
+3. Set bridge CF env vars via `cf set-env`
+4. Update bridge CAP_URL to BTP CF URL
+5. Update CPI iFlow — remove Claude call, POST raw transcript to CAP
+6. Architecture diagram + demo video
 
 ---
 

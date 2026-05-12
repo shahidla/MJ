@@ -8,9 +8,12 @@ applications:
     command: node index.js
     env:
       TRANSPORT: solace
+      STT_ENABLED: false
       NODE_ENV: production
-    # Solace credentials — set via cf set-env, never committed
-    # cf set-env mj-live-bridge SOLACE_URL wss://...
+      CAP_URL: https://mj-live-cap.cfapps.us10-001.hana.ondemand.com/odata/v4/mj/receiveTranscript
+    # Set credentials via cf set-env — never commit keys
+    # cf set-env mj-live-bridge SOLACE_URL wss://mr-connection-rcgt0ju559a.messaging.solace.cloud:443
     # cf set-env mj-live-bridge SOLACE_VPN mj-live
     # cf set-env mj-live-bridge SOLACE_USERNAME solace-cloud-client
-    # cf set-env mj-live-bridge SOLACE_PASSWORD ...
+    # cf set-env mj-live-bridge SOLACE_PASSWORD <password>
+    # cf set-env mj-live-bridge ELEVENLABS_API_KEY <key>  (only when STT_ENABLED=true)
