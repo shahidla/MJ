@@ -150,35 +150,70 @@ function getModel() {
   });
 }
 
-// ── RAG: find closest historical events in HANA ─────────────────────────────
+// ── Cosine similarity helper ─────────────────────────────────────────────────
+function cosineSimilarity(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot   += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+// ── Embed text via OpenAI ────────────────────────────────────────────────────
+async function getEmbedding(text) {
+  const res = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ model: 'text-embedding-3-small', input: text })
+  });
+  const json = await res.json();
+  return json.data[0].embedding;
+}
+
+// ── RAG: vector similarity search against HANA ───────────────────────────────
 async function ragRetrieve(db, transcript) {
+  try {
+    const rows = await db.run(`SELECT YEAR, HEADLINE, CONTEXT, EMBEDDING FROM "MJ_HISTORYEVENTS" WHERE EMBEDDING IS NOT NULL`);
+    if (rows.length === 0) {
+      console.warn('RAG: no embeddings found — falling back to keyword search');
+      return ragKeyword(db, transcript);
+    }
+
+    const queryVec = await getEmbedding(transcript);
+
+    const scored = rows.map(r => ({
+      year:      r.YEAR,
+      headline:  r.HEADLINE,
+      context:   r.CONTEXT,
+      score:     cosineSimilarity(queryVec, JSON.parse(r.EMBEDDING))
+    })).sort((a, b) => b.score - a.score).slice(0, 2);
+
+    console.log(`RAG: top matches — ${scored.map(s => `${s.year}(${s.score.toFixed(3)})`).join(', ')}`);
+    return scored.map(r => `${r.year}: ${r.headline} — ${r.context}`).join('\n\n');
+  } catch (e) {
+    console.warn('RAG vector error:', e.message, '— falling back to keyword');
+    return ragKeyword(db, transcript);
+  }
+}
+
+// ── Keyword fallback (used before embeddings are generated) ──────────────────
+async function ragKeyword(db, transcript) {
   try {
     const words = transcript.toLowerCase()
       .split(/\s+/)
       .map(w => w.replace(/[^a-z0-9]/g, ''))
       .filter(w => w.length > 3 && !['that','this','with','from','have','been','they','were','what','when','will','your','more','than','just','into','over','some','also','about'].includes(w));
-
     if (words.length === 0) return '';
-
-    // Search headline + context for keyword matches
-    const conditions = words.map(w =>
-      `(LOWER(HEADLINE) LIKE '%${w}%' OR LOWER(CONTEXT) LIKE '%${w}%')`
-    ).join(' OR ');
-
-    const results = await db.run(`
-      SELECT TOP 2 YEAR, HEADLINE, CONTEXT
-      FROM "MJ_HISTORYEVENTS"
-      WHERE ${conditions}
-      ORDER BY YEAR ASC
-    `);
-
-    if (results.length > 0) {
-      console.log(`RAG: found ${results.length} matching events`);
-      return results.map(r => `${r.YEAR}: ${r.HEADLINE} — ${r.CONTEXT}`).join('\n\n');
-    }
-    return '';
+    const conditions = words.map(w => `(LOWER(HEADLINE) LIKE '%${w}%' OR LOWER(CONTEXT) LIKE '%${w}%')`).join(' OR ');
+    const results = await db.run(`SELECT TOP 2 YEAR, HEADLINE, CONTEXT FROM "MJ_HISTORYEVENTS" WHERE ${conditions} ORDER BY YEAR ASC`);
+    return results.map(r => `${r.YEAR}: ${r.HEADLINE} — ${r.CONTEXT}`).join('\n\n');
   } catch (e) {
-    console.warn('RAG retrieve error:', e.message);
+    console.warn('RAG keyword error:', e.message);
     return '';
   }
 }

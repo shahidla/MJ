@@ -732,6 +732,13 @@ Complete pass through all project files. Grouped by file and severity.
 - **Deployed to CF:** Phase 7 complete — bridge + CAP running
 **Pending deploy (batch with embeddings):** All changes below
 
+**Embedding approach:**
+- Model: OpenAI text-embedding-3-small (1536 dimensions)
+- Script: scripts/generate-embeddings.js — run once locally after HANA schema deploy
+- RAG: switched from SQL LIKE keyword search to cosine similarity in JavaScript
+- Fallback: keyword search still runs if no embeddings found (safe during transition)
+- Order of operations: cds deploy → node scripts/generate-embeddings.js → test locally → cf push
+
 **Changes since last deploy:**
 - KB: 30 → 64 events (65 minus 1 duplicate removed), act+emotion columns removed (AI classifies these)
 - KB: full factual validation applied — 12 corrections: Treaty of Versailles date/deaths, Edison wording, 13th Amendment date, Hector Pieterson age, Desmond Tutu Nobel year (1984 not 1986), RFK quote corrected to 1966 Cape Town speech, duplicate JFK entry removed, Amazon oxygen claim corrected, Three Mile Island dramatization removed, species extinction figures qualified as estimates, homelessness unverified stat removed
