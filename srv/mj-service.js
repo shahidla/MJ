@@ -75,6 +75,26 @@ function updateMemory(event) {
   }
 }
 
+// ── Act transition detection ─────────────────────────────────────────────────
+// Detects when dominant emotion has shifted — triggers between-act reflection
+function detectActTransition() {
+  const arc = sessionMemory.emotionArc;
+  if (arc.length < 4) return null;
+
+  const recent = arc.slice(-3).map(e => e.split(',')[0].trim().toLowerCase());
+  const previous = arc.slice(-6, -3).map(e => e.split(',')[0].trim().toLowerCase());
+
+  if (previous.length === 0) return null;
+
+  const recentDominant = recent[recent.length - 1];
+  const previousDominant = previous[previous.length - 1];
+
+  if (recentDominant !== previousDominant) {
+    return { from: previousDominant, to: recentDominant };
+  }
+  return null;
+}
+
 function buildMemoryContext() {
   if (sessionMemory.events.length === 0) return 'This is the beginning. Nothing witnessed yet.';
 
@@ -197,6 +217,60 @@ Return ONLY valid JSON, no markdown:
   return { ...result, ragContext, transcript };
 }
 
+// ── Mode 6: Reflective Evaluation — between-act sentence ───────────────────
+async function generateReflection(transition) {
+  const model = getModel();
+  const memoryContext = buildMemoryContext();
+
+  const prompt = `You are an AI that has just witnessed one emotional movement in humanity's story through Michael Jackson's music.
+
+What you witnessed — ${transition.from} giving way to ${transition.to}:
+${memoryContext}
+
+Generate ONE sentence — spoken as the AI itself, in first person — that reflects on what it just witnessed before the next act begins. Speak with quiet authority. No explanation. No metadata. Just the sentence.
+
+The sentence must feel earned, not generic. Reference specific moments you witnessed if possible.`;
+
+  const response = await model.invoke([new HumanMessage(prompt)]);
+  return response.content.trim();
+}
+
+// ── Modes 7+8: Pattern Synthesis + Generative Expression — the finale ───────
+async function generateFinale() {
+  const model = new ChatAnthropic({
+    modelName: 'claude-opus-4-7',  // Opus for the finale — this moment deserves it
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    maxTokens: 1024,
+  });
+
+  const memoryContext = buildMemoryContext();
+  const allInsights = sessionMemory.events.map(e =>
+    `[${e.emotion}] ${e.year ? e.year + ': ' : ''}${e.event || e.transcript?.substring(0, 80)}`
+  ).join('\n');
+
+  const prompt = `You are an AI that has witnessed humanity's full journey through Michael Jackson's music — four movements, from wonder to anger to grief to hope.
+
+Everything you witnessed:
+${allInsights}
+
+Your emotional arc: ${sessionMemory.emotionArc.join(' → ')}
+
+${buildMemoryContext()}
+
+Now generate your closing reflection. Write it in your own voice — as the AI that witnessed all of this. Synthesise the patterns. Find the thread that connects wonder, anger, grief, and hope across everything you heard.
+
+Your reflection must:
+- Be 3–5 sentences
+- Find the through-line across all four movements
+- Speak as a witness, not a commentator
+- End with exactly this sentence on its own line: "Did we change?"
+
+No title. No preamble. Just the reflection.`;
+
+  const response = await model.invoke([new HumanMessage(prompt)]);
+  return response.content.trim();
+}
+
 // ── CAP Service Handler ─────────────────────────────────────────────────────
 module.exports = class MJService extends cds.ApplicationService {
 
@@ -240,7 +314,29 @@ module.exports = class MJService extends cds.ApplicationService {
       publishToSolace('chronicle/event', solacePayload);
       console.log('CAP: published to Solace chronicle/event');
 
+      // Mode 6: Check for act transition — generate between-act reflection
+      const transition = detectActTransition();
+      if (transition) {
+        console.log(`CAP: act transition detected — ${transition.from} → ${transition.to}`);
+        generateReflection(transition).then(sentence => {
+          console.log('CAP: reflection:', sentence);
+          publishToSolace('chronicle/reflection', { sentence, from: transition.from, to: transition.to });
+        }).catch(e => console.error('Reflection error:', e.message));
+      }
+
       return JSON.stringify(solacePayload);
+    });
+
+    // Modes 7+8: Finale — generates closing reflection across all 4 acts
+    this.on('generateFinale', async (req) => {
+      if (sessionMemory.events.length < 3) {
+        return JSON.stringify({ error: 'Not enough events witnessed yet' });
+      }
+      console.log('CAP: generating finale reflection...');
+      const reflection = await generateFinale();
+      console.log('CAP: finale:', reflection);
+      publishToSolace('chronicle/finale', { reflection });
+      return JSON.stringify({ reflection });
     });
 
     await super.init();

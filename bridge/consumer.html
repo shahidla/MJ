@@ -318,6 +318,75 @@
     margin-top: 2px;
   }
 
+  /* Between-act reflection */
+  #reflection-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    width: 60vw;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+  }
+
+  #reflection-panel.visible { opacity: 1; }
+
+  #reflection-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(18px, 2.5vw, 32px);
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.6;
+  }
+
+  /* Finale */
+  #finale-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 2s ease, background 2s ease;
+  }
+
+  #finale-panel.visible {
+    opacity: 1;
+    background: rgba(0,0,0,0.85);
+  }
+
+  #finale-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(16px, 2.2vw, 28px);
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.8;
+    text-align: center;
+    max-width: 65vw;
+    white-space: pre-line;
+  }
+
+  #finale-closing {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 4vw, 56px);
+    letter-spacing: 10px;
+    color: rgba(201,168,76,0.9);
+    margin-top: 40px;
+    opacity: 0;
+    transition: opacity 2s ease;
+  }
+
+  #finale-closing.visible { opacity: 1; }
+
   #progress-bar {
     position: fixed;
     bottom: 0;
@@ -403,6 +472,15 @@
 <div id="transcript-panel">
   <div id="transcript-history"></div>
   <div id="transcript-partial"></div>
+</div>
+
+<div id="reflection-panel">
+  <div id="reflection-text"></div>
+</div>
+
+<div id="finale-panel">
+  <div id="finale-text"></div>
+  <div id="finale-closing">Did we change?</div>
 </div>
 
 <div id="progress-bar"></div>
@@ -541,6 +619,27 @@ function addChronicleEntry(payload) {
   });
 }
 
+function handleReflection(payload) {
+  const panel = document.getElementById('reflection-panel');
+  document.getElementById('reflection-text').textContent = payload.sentence || '';
+  panel.classList.add('visible');
+  // Hold for 6 seconds then fade out
+  setTimeout(() => panel.classList.remove('visible'), 6000);
+}
+
+function handleFinale(payload) {
+  const reflection = payload.reflection || '';
+  // Split off the last line "Did we change?" if Claude included it
+  const lines = reflection.replace(/Did we change\??\s*$/i, '').trim();
+  document.getElementById('finale-text').textContent = lines;
+  const panel = document.getElementById('finale-panel');
+  panel.classList.add('visible');
+  // Reveal "Did we change?" after 4 seconds
+  setTimeout(() => {
+    document.getElementById('finale-closing').classList.add('visible');
+  }, 4000);
+}
+
 function handleChronicleEvent(payload) {
   // Animate cognitive pipeline first, then reveal results
   animateCognitiveModes(() => {
@@ -614,6 +713,14 @@ function connectSolace(cfg) {
       solace.SolclientFactory.createTopicDestination('chronicle/event'),
       true, 'chronicle/event', 1000
     );
+    session.subscribe(
+      solace.SolclientFactory.createTopicDestination('chronicle/reflection'),
+      true, 'chronicle/reflection', 1000
+    );
+    session.subscribe(
+      solace.SolclientFactory.createTopicDestination('chronicle/finale'),
+      true, 'chronicle/finale', 1000
+    );
   });
   session.on(solace.SessionEventCode.MESSAGE, (msg) => {
     try {
@@ -633,6 +740,10 @@ function connectSolace(cfg) {
         handleEqPayload(payload);
       } else if (topic === 'chronicle/event') {
         handleChronicleEvent(payload);
+      } else if (topic === 'chronicle/reflection') {
+        handleReflection(payload);
+      } else if (topic === 'chronicle/finale') {
+        handleFinale(payload);
       }
     } catch (e) { console.error('Solace message error:', e); }
   });

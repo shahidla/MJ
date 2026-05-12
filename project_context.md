@@ -310,7 +310,7 @@ One demo. One blog post with sections. Not eight separate posts.
 | 3 | CAP cognitive pipeline, HANA RAG knowledge base (30 events), bridge→CAP auto-POST | COMPLETE ✅ | The Memory |
 | 4 | Temporal Memory + Relational Reasoning across acts (Modes 4+5) | COMPLETE ✅ | The Reasoning |
 | 5 | Consumer chronicle builds cinematically, cognitive mode indicator, 4-act reveal | COMPLETE ✅ | The Chronicle |
-| 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | NEXT | The Conscience |
+| 6 | Reflection Agent (Mode 6) + Finale Agent (Modes 7+8) + closing reflection | COMPLETE ✅ | The Conscience |
 | 7 | Deploy bridge + CAP to BTP CF, architecture diagram, demo video | Pending | The Tribute |
 
 ---
@@ -449,6 +449,11 @@ HTTPS Sender (/mj-transcript)
 | Cognitive mode indicator animates 01→05 on each event | `bridge/consumer.html` | Done ✅ |
 | Year reveals cinematically (slide-up + gold glow) | `bridge/consumer.html` | Done ✅ |
 | Chronicle accumulates last 4 entries, emotion bars shift | `bridge/consumer.html` | Done ✅ |
+| Mode 6 — Reflective Evaluation (between-act sentence) | `srv/mj-service.js` | Done ✅ |
+| Mode 7+8 — Finale Agent + closing reflection (Claude Opus) | `srv/mj-service.js` | Done ✅ |
+| chronicle/reflection + chronicle/finale Solace topics | bridge + CAP | Done ✅ |
+| Consumer displays reflection (centre fade) + finale (full screen) | `bridge/consumer.html` | Done ✅ |
+| Trigger finale: `curl -X POST http://localhost:4004/odata/v4/mj/generateFinale` | | Ready |
 | CPI iFlow updated — POST raw transcript to CAP (remove Claude from CPI) | | Pending |
 
 **CAP endpoints (local):**
