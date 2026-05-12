@@ -1,29 +1,27 @@
 namespace mj;
 
-@cds.persistence.exists
-@cds.persistence.name: 'MJ_HISTORY_EVENTS'
-entity MJHistoryEvents
-
-{
-  key EVENT_ID       : Integer64;
-      SONG_NAME      : String(120);
-      LYRIC_TIME_SEC : Integer;
-      LYRIC_TEXT     : String(2000);
-      DATE_TEXT      : String(40);
-      EVENT_DATE     : Date;
-      CREATED_AT     : Timestamp;
+// Knowledge base — historical events that MJ sings about
+// Seeded once, queried via RAG for every transcript
+entity HistoryEvents {
+  key id       : UUID;
+  year         : Integer;
+  headline     : String(200);
+  context      : String(2000); // deep historical context for RAG
+  emotion      : String(50);   // dominant emotion: wonder/anger/grief/hope
+  act          : String(50);   // which act this belongs to
+  embedding    : LargeString;  // JSON-serialised vector (HANA Vector in prod)
 }
 
-@cds.persistence.exists
-@cds.persistence.name: 'MJ_HISTORY_EVENTS_V'
-entity MJHistoryEventsView
-
-{
-  key EVENT_ID       : Integer64;
-      SONG_NAME      : String(120);
-      LYRIC_TIME_SEC : Integer;
-      LYRIC_TEXT     : String(2000);
-      DATE_TEXT      : String(40);
-      EVENT_DATE     : Date;
-      CREATED_AT     : Timestamp;
+// Live chronicle — events detected during each demo run
+entity ChronicleEvents {
+  key id        : UUID;
+  sessionId     : String(50);
+  ts            : Timestamp;
+  transcript    : String(2000);
+  emotion       : String(100);
+  year          : String(20);
+  event         : String(500);
+  insight       : String(1000);
+  ragContext    : String(2000); // what HANA Vector returned
+  actNumber     : Integer;      // 1-4
 }
