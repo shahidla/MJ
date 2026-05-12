@@ -25,6 +25,9 @@
     "requires": {
       "db": {
         "kind": "hana"
+      },
+      "auth": {
+        "kind": "dummy"
       }
     }
   }

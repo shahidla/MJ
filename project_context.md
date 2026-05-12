@@ -585,6 +585,10 @@ When CF's nodejs buildpack runs `npm install`, it creates `node_modules/.bin/cds
 - `ANTHROPIC_API_KEY`
 - `SOLACE_URL`, `SOLACE_VPN`, `SOLACE_USERNAME`, `SOLACE_PASSWORD`
 
+**CF crash #2 — @sap/xssec missing:**
+CAP 9.x on CF auto-detects XSUAA service and tries to load `@sap/xssec` (JWT auth middleware). Without an XSUAA binding this causes `MODULE_NOT_FOUND` crash.
+Fix: `cds.requires.auth.kind = "dummy"` in `package.json` — prevents CAP from loading xssec entirely. Correct for a demo app with no end-user auth.
+
 **Next steps for Phase 7:**
 1. `cf push` from MJ root (uses manifest.yml, path: gen/srv) — verify CAP starts
 2. `cf push` from bridge/ directory — deploy bridge
