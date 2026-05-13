@@ -77,18 +77,9 @@ wss.on('connection', (ws, req) => {
 
     ws.on('message', (data, isBinary) => {
       if (isBinary) {
-        // Raw PCM16 audio — forward to transport
-        if (TRANSPORT === 'solace') {
-          if (!solaceConnected) { console.warn('Solace not connected, dropping PCM chunk'); return; }
-          const solace = require('solclientjs');
-          const msg = solace.SolclientFactory.createMessage();
-          msg.setDestination(solace.SolclientFactory.createTopicDestination('audio/pcm'));
-          msg.setBinaryAttachment(data);
-          msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
-          solaceSession.send(msg);
-        } else {
-          sttAll.sendPcm(data);
-        }
+        // Raw PCM16 audio — send to ElevenLabs STT only
+        // audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber needed
+        sttAll.sendPcm(data);
       } else {
         // JSON EQ frame
         try {
@@ -175,18 +166,7 @@ app.post('/eq', express.json(), (req, res) => {
 });
 
 app.post('/audio', express.raw({ type: 'application/octet-stream', limit: '2mb' }), (req, res) => {
-  if (TRANSPORT === 'solace') {
-    if (solaceConnected) {
-      const solace = require('solclientjs');
-      const msg = solace.SolclientFactory.createMessage();
-      msg.setDestination(solace.SolclientFactory.createTopicDestination('audio/pcm'));
-      msg.setBinaryAttachment(req.body);
-      msg.setDeliveryMode(solace.MessageDeliveryModeType.DIRECT);
-      solaceSession.send(msg);
-    }
-  } else {
-    sttAll.sendPcm(req.body);
-  }
+  sttAll.sendPcm(req.body);
   res.status(204).end();
 });
 

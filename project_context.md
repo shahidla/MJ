@@ -732,6 +732,17 @@ Complete pass through all project files. Grouped by file and severity.
 - **Deployed to CF:** Phase 7 complete — bridge + CAP running
 **Deployed 2026-05-13:** All changes below live on CF
 
+**Live data flow (final architecture):**
+```
+Producer → PCM → Bridge → ElevenLabs STT → CPI /mj-transcript → CAP
+Producer → EQ  → Bridge → Solace audio/equalizer → Consumer
+CAP → Solace pipeline/status → Consumer (cognitive mode subtitles)
+CAP → Solace chronicle/event → Consumer (year + chronicle)
+CAP → Solace chronicle/reflection → Consumer (between-act)
+CAP → Solace chronicle/finale → Consumer (closing)
+```
+audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber needed.
+
 **Embedding approach:**
 - Model: OpenAI text-embedding-3-small (1536 dimensions)
 - Script: scripts/generate-embeddings.js — run once locally after HANA schema deploy

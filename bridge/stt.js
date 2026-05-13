@@ -81,20 +81,23 @@ function sendToElevenLabs(buffer) {
   }
 }
 
-// ── Forward transcript to CAP cognitive pipeline ────────────────────────────
-const CAP_URL = process.env.CAP_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript';
+// ── Forward transcript via CPI → CAP ────────────────────────────────────────
+// CPI is the enterprise relay: Bridge → ElevenLabs → CPI → CAP
+const CPI_URL = process.env.CPI_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript';
+const CPI_USER = process.env.CPI_USER || '';
+const CPI_PASSWORD = process.env.CPI_PASSWORD || '';
 
 async function forwardToCAP(text) {
   try {
-    const res = await fetch(CAP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: text })
-    });
-    if (!res.ok) console.error('CAP forward error:', res.status);
-    else console.log('Forwarded to CAP:', text.substring(0, 60));
+    const headers = { 'Content-Type': 'text/plain' };
+    if (CPI_USER) {
+      headers['Authorization'] = 'Basic ' + Buffer.from(`${CPI_USER}:${CPI_PASSWORD}`).toString('base64');
+    }
+    const res = await fetch(CPI_URL, { method: 'POST', headers, body: text });
+    if (!res.ok) console.error('CPI forward error:', res.status);
+    else console.log('Forwarded to CPI:', text.substring(0, 60));
   } catch (e) {
-    console.error('CAP forward error:', e.message);
+    console.error('CPI forward error:', e.message);
   }
 }
 
