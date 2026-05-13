@@ -50,8 +50,7 @@ async function initElevenLabs() {
 
       partialBuffer = text;
       if (partialBuffer.length >= CHUNK_SIZE) {
-        const chunk = partialBuffer.substring(0, CHUNK_SIZE).replace(/"/g, "'");
-        forwardToCAP(chunk);
+        forwardToCAP(partialBuffer.substring(0, CHUNK_SIZE));
         // Keep last OVERLAP chars as start of next chunk
         partialBuffer = partialBuffer.substring(CHUNK_SIZE - OVERLAP);
       }
@@ -65,7 +64,7 @@ async function initElevenLabs() {
       onTranscriptCb && onTranscriptCb(text, true);
       // Send remaining buffer + forward full final
       partialBuffer = '';
-      forwardToCAP(text.substring(0, 500).replace(/"/g, "'"));
+      forwardToCAP(text);
     });
 
     connection.on('error', (err) => {
@@ -101,24 +100,47 @@ const CPI_USER = process.env.CPI_USER || '';
 const CPI_PASSWORD = process.env.CPI_PASSWORD || '';
 
 const cpiCallLog = [];
+let cpiInFlight = false;
+
+function sanitize(text) {
+  return text
+    .replace(/"/g, "'")         // double quotes break JSON in Content Modifier
+    .replace(/\\/g, '')         // backslashes break JSON
+    .replace(/[${}]/g, '')      // $ { } break Camel Simple expression in CPI
+    .replace(/[\n\r\t]/g, ' ')  // newlines → space
+    .replace(/[\x00-\x1F\x7F]/g, '') // control characters
+    .replace(/\s+/g, ' ')       // collapse spaces
+    .trim()
+    .substring(0, 300);         // hard cap — keeps CAP response fast
+}
 
 async function forwardToCAP(text) {
-  const entry = { ts: new Date().toISOString(), transcript: text.substring(0, 200), status: null };
+  if (cpiInFlight) {
+    console.log('CPI in flight — skipping to avoid flood');
+    return;
+  }
+  const body = sanitize(text);
+  if (!body) return;
+
+  const entry = { ts: new Date().toISOString(), transcript: body, status: null };
   cpiCallLog.push(entry);
   if (cpiCallLog.length > 50) cpiCallLog.shift();
+
+  cpiInFlight = true;
   try {
-    const body = text.substring(0, 500);
     const headers = { 'Content-Type': 'text/plain' };
     if (CPI_USER) {
       headers['Authorization'] = 'Basic ' + Buffer.from(`${CPI_USER}:${CPI_PASSWORD}`).toString('base64');
     }
     const res = await fetch(CPI_URL, { method: 'POST', headers, body });
     entry.status = res.ok ? 'ok' : `error ${res.status}`;
-    if (!res.ok) console.error('CPI forward error:', res.status);
+    if (!res.ok) console.error('CPI forward error:', res.status, await res.text());
     else console.log('Forwarded to CPI:', body.substring(0, 80));
   } catch (e) {
     entry.status = `error: ${e.message}`;
     console.error('CPI forward error:', e.message);
+  } finally {
+    cpiInFlight = false;
   }
 }
 
