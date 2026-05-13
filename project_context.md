@@ -730,7 +730,7 @@ Complete pass through all project files. Grouped by file and severity.
 - RAG context now visible in consumer: `heard` (raw STT) + `kb` (RAG result) per chronicle entry
 - `transcript` + `ragContext` added to Solace `chronicle/event` payload (was missing)
 - **Deployed to CF:** Phase 7 complete — bridge + CAP running
-**Pending deploy (batch with embeddings):** All changes below
+**Deployed 2026-05-13:** All changes below live on CF
 
 **Embedding approach:**
 - Model: OpenAI text-embedding-3-small (1536 dimensions)
