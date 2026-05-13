@@ -216,6 +216,8 @@ app.get('/test-chronicle', (req, res) => {
   res.json({ published: true, payload });
 });
 
+app.get('/cpi-log', (req, res) => res.json(sttAll.getCpiLog ? sttAll.getCpiLog() : []));
+
 app.get('/status', (req, res) => {
   res.json({
     transport: TRANSPORT,
