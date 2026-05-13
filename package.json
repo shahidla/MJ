@@ -34,14 +34,9 @@
         "kind": "dummy"
       }
     },
-    "profiles": {
-      "development": {
-        "requires": {
-          "db": {
-            "kind": "sqlite",
-            "credentials": { "url": "db.sqlite" }
-          }
-        }
+    "[development]": {
+      "requires": {
+        "db": { "kind": "sqlite" }
       }
     }
   }
