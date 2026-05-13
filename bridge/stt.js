@@ -123,18 +123,24 @@ function sanitize(text) {
     .substring(0, 300);         // hard cap — keeps CAP response fast
 }
 
+const isDirectCAP = CPI_URL.includes('/odata/');
+
 async function sendToCPI(body) {
   const entry = { ts: new Date().toISOString(), transcript: body, status: null };
   cpiCallLog.push(entry);
   if (cpiCallLog.length > 50) cpiCallLog.shift();
   cpiInFlight = true;
   try {
-    const headers = { 'Content-Type': 'text/plain' };
+    // Direct CAP needs JSON; cloud CPI needs plain text (CPI wraps it)
+    const headers = isDirectCAP
+      ? { 'Content-Type': 'application/json' }
+      : { 'Content-Type': 'text/plain' };
     if (CPI_USER) headers['Authorization'] = 'Basic ' + Buffer.from(`${CPI_USER}:${CPI_PASSWORD}`).toString('base64');
-    const res = await fetch(CPI_URL, { method: 'POST', headers, body });
+    const reqBody = isDirectCAP ? JSON.stringify({ transcript: body }) : body;
+    const res = await fetch(CPI_URL, { method: 'POST', headers, body: reqBody });
     entry.status = res.ok ? 'ok' : `error ${res.status}`;
     if (!res.ok) console.error('CPI error:', res.status);
-    else console.log('Forwarded to CPI:', body.substring(0, 80));
+    else console.log('Forwarded to CAP:', body.substring(0, 80));
   } catch (e) {
     entry.status = `error: ${e.message}`;
     console.error('CPI error:', e.message);
