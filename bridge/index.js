@@ -127,9 +127,21 @@ app.get('/log',      (req, res) => res.sendFile(path.join(__dirname, 'log.html')
 
 const CAP_BASE = () => (process.env.CAP_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript').replace('/odata/v4/mj/receiveTranscript', '');
 
+app.get('/current-session', async (req, res) => {
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/currentSession`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const json = await r.json();
+    res.json(JSON.parse(json.value));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/session-log', async (req, res) => {
   try {
-    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/ChronicleEvents?$orderby=ts asc&$top=200`);
+    const sessionId = req.query.sessionId;
+    const filter = sessionId ? `&$filter=sessionId eq '${sessionId}'` : '';
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/ChronicleEvents?$orderby=ts asc&$top=200${filter}`);
     const json = await r.json();
     res.json(json.value || []);
   } catch (e) {
@@ -146,8 +158,8 @@ app.post('/reset-session', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, '../app/media/vocals.mp3')));
-app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, '../app/mj-audio-worklet.js')));
+app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, 'vocals.mp3')));
+app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, 'mj-audio-worklet.js')));
 app.get('/solace-client.js', (req, res) => res.sendFile(path.join(__dirname, 'node_modules/solclientjs/lib-browser/solclient.js')));
 app.get('/solace-config', (req, res) => res.json({
   url:      process.env.SOLACE_URL,

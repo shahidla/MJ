@@ -11,6 +11,9 @@ service MJService {
   // Reset in-memory session state between demo runs
   action resetSession() returns String;
 
+  // Returns current session ID — used by log to filter events
+  action currentSession() returns String;
+
   // Read-only access to chronicle for monitoring
   entity ChronicleEvents as projection on mj.ChronicleEvents;
   entity HistoryEvents    as projection on mj.HistoryEvents;

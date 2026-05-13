@@ -2,6 +2,10 @@ const cds = require('@sap/cds');
 const { ChatAnthropic } = require('@langchain/anthropic');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 const solace = require('solclientjs');
+const { randomUUID } = require('crypto');
+
+const SESSION_ID = randomUUID();
+console.log(`CAP session ID: ${SESSION_ID}`);
 
 // ── Solace publisher ────────────────────────────────────────────────────────
 let solaceSession = null;
@@ -354,7 +358,7 @@ module.exports = class MJService extends cds.ApplicationService {
       // Persist to HANA/SQLite
       const event = {
         id:         cds.utils.uuid(),
-        sessionId:  'demo',
+        sessionId:  SESSION_ID,
         ts:         new Date(),
         transcript,
         emotion:    result.emotion,
@@ -406,7 +410,11 @@ module.exports = class MJService extends cds.ApplicationService {
       sessionMemory.emotionArc = [];
       sessionMemory.actSummaries = {};
       console.log('CAP: session memory reset');
-      return JSON.stringify({ reset: true, ts: new Date().toISOString() });
+      return JSON.stringify({ reset: true, sessionId: SESSION_ID, ts: new Date().toISOString() });
+    });
+
+    this.on('currentSession', async (req) => {
+      return JSON.stringify({ sessionId: SESSION_ID });
     });
 
     this.on('generateFinale', async (req) => {

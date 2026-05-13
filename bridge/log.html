@@ -75,6 +75,8 @@
   .btn-refresh:hover { background: #f0c84a; }
   .btn-reset { background: #161b22; color: #f85149; border: 1px solid #30363d; }
   .btn-reset:hover { background: #2a1515; }
+  .btn-all { background: #161b22; color: #6b7280; border: 1px solid #30363d; }
+  .btn-all:hover { background: #1f2937; }
 
   #count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #6b7280; margin-left: 4px; }
 
@@ -222,26 +224,42 @@
 <div class="controls">
   <button class="btn-refresh" onclick="load()">REFRESH</button>
   <button class="btn-reset" onclick="resetSession()">RESET SESSION</button>
+  <button class="btn-all" id="btn-all" onclick="toggleAll()">SHOW ALL</button>
   <input type="text" id="filter" placeholder="filter by transcript, emotion, year, event..." oninput="render()">
   <span id="count"></span>
+  <span id="session-id" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#484f58;margin-left:8px;"></span>
 </div>
 
 <div id="cards"></div>
 
 <script>
 let allRows = [];
+let currentSessionId = null;
+let showAll = false;
 
 const ACT_NAMES = { 1: 'Act 1 — Wonder', 2: 'Act 2 — Anger', 3: 'Act 3 — Grief', 4: 'Act 4 — Hope' };
 
 async function load() {
   document.getElementById('count').textContent = 'loading...';
   try {
-    const res = await fetch('/session-log');
+    if (!currentSessionId) {
+      const s = await fetch('/current-session').then(r => r.json());
+      currentSessionId = s.sessionId;
+      document.getElementById('session-id').textContent = `session: ${currentSessionId?.substring(0,8)}...`;
+    }
+    const url = showAll ? '/session-log' : `/session-log?sessionId=${currentSessionId}`;
+    const res = await fetch(url);
     allRows = await res.json();
     render();
   } catch (e) {
     document.getElementById('cards').innerHTML = `<div class="empty">ERROR — ${e.message}</div>`;
   }
+}
+
+function toggleAll() {
+  showAll = !showAll;
+  document.getElementById('btn-all').textContent = showAll ? 'CURRENT SESSION' : 'SHOW ALL';
+  load();
 }
 
 function render() {
