@@ -37,34 +37,38 @@ async function initElevenLabs() {
       console.log('ElevenLabs scribe_v2_realtime: session started');
     });
 
-    let partialBuffer = '';
-    const CHUNK_SIZE = 150;
+    // ElevenLabs partials are CUMULATIVE — each partial contains full text from start
+    // Track position: only send when we've advanced CHUNK_SIZE chars beyond last send
+    let sentUpTo = 0;
+    const CHUNK_SIZE = 200;
     const OVERLAP    = 50;
 
     connection.on('partial_transcript', (data) => {
       const text = data.text?.trim();
       if (!text) return;
-      console.log('[partial]', text);
+      console.log('[partial]', text.substring(0, 80) + (text.length > 80 ? '...' : ''));
       logTranscript('partial', text);
       onTranscriptCb && onTranscriptCb(text, false);
 
-      partialBuffer = text;
-      if (partialBuffer.length >= CHUNK_SIZE) {
-        forwardToCAP(partialBuffer.substring(0, CHUNK_SIZE));
-        // Keep last OVERLAP chars as start of next chunk
-        partialBuffer = partialBuffer.substring(CHUNK_SIZE - OVERLAP);
+      // Only trigger when we've grown CHUNK_SIZE chars past the last sent position
+      if (text.length >= sentUpTo + CHUNK_SIZE) {
+        const chunkStart = Math.max(0, sentUpTo - OVERLAP);
+        const chunk = text.substring(chunkStart, chunkStart + CHUNK_SIZE);
+        forwardToCAP(chunk);
+        sentUpTo = chunkStart + CHUNK_SIZE - OVERLAP; // advance with overlap
       }
     });
 
     connection.on('committed_transcript', (data) => {
       const text = data.text?.trim();
       if (!text) return;
-      console.log('[FINAL]', text);
+      console.log('[FINAL]', text.substring(0, 100));
       logTranscript('FINAL', text);
       onTranscriptCb && onTranscriptCb(text, true);
-      // Send remaining buffer + forward full final
-      partialBuffer = '';
-      forwardToCAP(text);
+      sentUpTo = 0; // reset for next utterance
+      // Send the remaining unsent tail (everything past last chunk)
+      const tail = text.substring(Math.max(0, sentUpTo - OVERLAP));
+      if (tail.trim()) forwardToCAP(tail);
     });
 
     connection.on('error', (err) => {

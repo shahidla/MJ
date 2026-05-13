@@ -583,7 +583,7 @@ function showStatus(text) {
   el.textContent = text;
   el.classList.add('visible');
   clearTimeout(statusTimer);
-  statusTimer = setTimeout(() => el.classList.remove('visible'), 2500);
+  statusTimer = setTimeout(() => el.classList.remove('visible'), 3500);
 }
 
 // ── Handle pipeline/status events ──
