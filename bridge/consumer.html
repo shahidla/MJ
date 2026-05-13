@@ -639,9 +639,9 @@ function addChronicleEntry(payload) {
   `;
   container.appendChild(entry);
 
-  // Keep last 4 entries
+  // Keep last 3 entries
   const entries = container.querySelectorAll('.chronicle-entry');
-  if (entries.length > 4) entries[0].remove();
+  if (entries.length > 3) entries[0].remove();
 
   // Animate in
   requestAnimationFrame(() => {
