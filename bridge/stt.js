@@ -38,10 +38,11 @@ async function initElevenLabs() {
     });
 
     // ElevenLabs partials are CUMULATIVE — each partial contains full text from start
-    // Track position: only send when we've advanced CHUNK_SIZE chars beyond last send
+    // Track sentUpTo: only send when text has grown CHUNK_SIZE beyond last sent position
     let sentUpTo = 0;
-    const CHUNK_SIZE = 200;
-    const OVERLAP    = 50;
+    let pendingFinal = null;
+    const CHUNK_SIZE = 150;
+    const OVERLAP    = 40;
 
     connection.on('partial_transcript', (data) => {
       const text = data.text?.trim();
@@ -50,12 +51,11 @@ async function initElevenLabs() {
       logTranscript('partial', text);
       onTranscriptCb && onTranscriptCb(text, false);
 
-      // Only trigger when we've grown CHUNK_SIZE chars past the last sent position
       if (text.length >= sentUpTo + CHUNK_SIZE) {
         const chunkStart = Math.max(0, sentUpTo - OVERLAP);
         const chunk = text.substring(chunkStart, chunkStart + CHUNK_SIZE);
-        forwardToCAP(chunk);
-        sentUpTo = chunkStart + CHUNK_SIZE - OVERLAP; // advance with overlap
+        sentUpTo = chunkStart + CHUNK_SIZE - OVERLAP;
+        forwardToCAP(chunk, false); // partial — skip if in flight
       }
     });
 
@@ -65,10 +65,14 @@ async function initElevenLabs() {
       console.log('[FINAL]', text.substring(0, 100));
       logTranscript('FINAL', text);
       onTranscriptCb && onTranscriptCb(text, true);
+
+      // Save sentUpTo BEFORE resetting — use it to find the unsent tail
+      const prevSentUpTo = sentUpTo;
       sentUpTo = 0; // reset for next utterance
-      // Send the remaining unsent tail (everything past last chunk)
-      const tail = text.substring(Math.max(0, sentUpTo - OVERLAP));
-      if (tail.trim()) forwardToCAP(tail);
+
+      const tailStart = Math.max(0, prevSentUpTo - OVERLAP);
+      const tail = text.substring(tailStart).trim();
+      if (tail) forwardToCAP(tail, true); // final — queue, never skip
     });
 
     connection.on('error', (err) => {
@@ -105,6 +109,7 @@ const CPI_PASSWORD = process.env.CPI_PASSWORD || '';
 
 const cpiCallLog = [];
 let cpiInFlight = false;
+let queuedFinal = null;
 
 function sanitize(text) {
   return text
@@ -118,34 +123,41 @@ function sanitize(text) {
     .substring(0, 300);         // hard cap — keeps CAP response fast
 }
 
-async function forwardToCAP(text) {
-  if (cpiInFlight) {
-    console.log('CPI in flight — skipping to avoid flood');
-    return;
-  }
-  const body = sanitize(text);
-  if (!body) return;
-
+async function sendToCPI(body) {
   const entry = { ts: new Date().toISOString(), transcript: body, status: null };
   cpiCallLog.push(entry);
   if (cpiCallLog.length > 50) cpiCallLog.shift();
-
   cpiInFlight = true;
   try {
     const headers = { 'Content-Type': 'text/plain' };
-    if (CPI_USER) {
-      headers['Authorization'] = 'Basic ' + Buffer.from(`${CPI_USER}:${CPI_PASSWORD}`).toString('base64');
-    }
+    if (CPI_USER) headers['Authorization'] = 'Basic ' + Buffer.from(`${CPI_USER}:${CPI_PASSWORD}`).toString('base64');
     const res = await fetch(CPI_URL, { method: 'POST', headers, body });
     entry.status = res.ok ? 'ok' : `error ${res.status}`;
-    if (!res.ok) console.error('CPI forward error:', res.status, await res.text());
+    if (!res.ok) console.error('CPI error:', res.status);
     else console.log('Forwarded to CPI:', body.substring(0, 80));
   } catch (e) {
     entry.status = `error: ${e.message}`;
-    console.error('CPI forward error:', e.message);
+    console.error('CPI error:', e.message);
   } finally {
     cpiInFlight = false;
+    if (queuedFinal) {
+      const q = queuedFinal; queuedFinal = null;
+      console.log('Sending queued final');
+      await sendToCPI(q);
+    }
   }
+}
+
+async function forwardToCAP(text, isFinal = false) {
+  const body = sanitize(text);
+  if (!body) return;
+
+  if (cpiInFlight) {
+    if (isFinal) { queuedFinal = body; console.log('CPI in flight — queuing final'); }
+    else console.log('CPI in flight — skipping chunk');
+    return;
+  }
+  await sendToCPI(body);
 }
 
 module.exports.getCpiLog = () => cpiCallLog;
