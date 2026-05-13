@@ -141,11 +141,11 @@
   .mode-row.active .mode-output {
     color: #f5f5f5;
     opacity: 1;
-    font-size: clamp(12px, 1.15vw, 15px);
+    font-size: clamp(13px, 1.3vw, 17px);
   }
-  .mode-row.done .mode-num  { color: #9a9a9a; }
-  .mode-row.done .mode-name { color: #9a9a9a; }
-  .mode-row.done .mode-output { color: #9a9a9a; opacity: 1; }
+  .mode-row.done .mode-num   { color: #9a9a9a; }
+  .mode-row.done .mode-name  { color: #9a9a9a; }
+  .mode-row.done .mode-output { color: #9a9a9a; opacity: 1; font-size: clamp(12px, 1.1vw, 14px); }
 
   /* Emotion bars */
   #emotion-bar-panel {
@@ -434,7 +434,7 @@
         <span class="mode-output" id="mout-8">—</span>
       </div>
     </div>
-    <div id="emotion-bar-panel"></div>
+    <!-- EQ rendered on canvas in this area — no HTML bars needed -->
   </div>
 
   <!-- Right: The Chronicle -->
@@ -489,26 +489,14 @@ function handleEqPayload(payload) {
   lastFrameTs = Date.now();
 }
 
-// ── Emotion bars (dynamic) ──
+// ── Emotion tracking (for mode 04 output) ──
 const emotionCounts = {};
-const emotionColours = ['#c9a84c','#4a7c9e','#c0392b','#27ae60','#8e44ad','#e67e22','#1abc9c','#e74c3c'];
 
-function updateEmotionBars(emotionText) {
+function trackEmotion(emotionText) {
   if (!emotionText) return;
   const primary = emotionText.split(/[,\/]/)[0].trim().toLowerCase();
   if (!primary) return;
   emotionCounts[primary] = (emotionCounts[primary] || 0) + 1;
-  const panel = document.getElementById('emotion-bar-panel');
-  const total = Object.values(emotionCounts).reduce((a, b) => a + b, 0);
-  const sorted = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  panel.innerHTML = sorted.map(([emotion, count], i) => {
-    const pct = Math.round((count / total) * 100);
-    const colour = emotionColours[i % emotionColours.length];
-    return `<div class="emotion-row">
-      <div class="emotion-label">${emotion}</div>
-      <div class="emotion-bar-bg"><div class="emotion-bar-fill" style="width:${pct}%;background:${colour}"></div></div>
-    </div>`;
-  }).join('');
 }
 
 // ── Pipeline mode management ──
@@ -573,7 +561,7 @@ function handleChronicleEvent(payload) {
   }, 2000);
 
   addChronicleEntry(payload);
-  updateEmotionBars(payload.emotion);
+  trackEmotion(payload.emotion);
 
   document.getElementById('title').classList.add('playing');
   document.getElementById('subtitle').classList.add('playing');
@@ -627,6 +615,12 @@ function handleTranscript(text, isFinal) {
     pendingPartial = '';
   } else {
     pendingPartial = text;
+    // Show live STT in mode 01 output in real time
+    setModeOutput(1, text.substring(0, 120) + (text.length > 120 ? '…' : ''));
+    if (!document.getElementById('mrow-1').classList.contains('active')) {
+      document.getElementById('mrow-1').classList.remove('done');
+      document.getElementById('mrow-1').style.opacity = '0.6';
+    }
   }
   transcriptDirty = true;
 }
@@ -755,37 +749,31 @@ function draw() {
   c.fillStyle = `rgba(0,0,0,${0.25 + bass * 0.1})`;
   c.fillRect(0, 0, w, h);
 
-  // EQ strip — top 27% of screen only, panels take bottom 73%
-  const floorY = h * 0.27;
+  // EQ — bottom-left only, same footprint as emotion bars panel
+  // Pipeline panel: 62vw wide, emotion bars at very bottom of it
+  const eqW   = w * 0.58;         // ~58% of screen width (pipeline panel minus padding)
+  const eqH   = h * 0.08;         // 8% tall — same height as emotion bars area
+  const eqX   = 20;               // left padding
+  const eqY   = h - 20;           // 20px from bottom
   const barCount = FREQ_BINS;
-  const barW = w / barCount;
-  const maxBarH = h * 0.24; // max 24% upward from floor
+  const barW  = eqW / barCount;
 
   for (let i = 0; i < barCount; i++) {
     const val = freqData[i] / 255;
-    const barH = val * maxBarH;
-    const x = i * barW;
-    const hueShift = (i / barCount) * 60 + hue;
-    const grad = c.createLinearGradient(x, floorY, x, floorY - barH);
-    grad.addColorStop(0, `hsla(${hueShift}, 70%, 40%, 0.7)`);
-    grad.addColorStop(1, `hsla(${hueShift + 30}, 90%, 70%, 0.0)`);
+    const barH = val * eqH;
+    const x = eqX + i * barW;
+    const hueShift = (i / barCount) * 50 + hue;
+    const grad = c.createLinearGradient(x, eqY, x, eqY - barH);
+    grad.addColorStop(0, `hsla(${hueShift}, 70%, 40%, 0.8)`);
+    grad.addColorStop(1, `hsla(${hueShift + 30}, 90%, 65%, 0.0)`);
     c.fillStyle = grad;
-    c.fillRect(x, floorY - barH, barW - 1, barH);
+    c.fillRect(x, eqY - barH, barW - 1, barH);
   }
 
-  // Floor line — subtle gold
-  c.strokeStyle = `rgba(201,168,76,${0.08 + bass * 0.15})`;
+  // Floor line
+  c.strokeStyle = `rgba(201,168,76,${0.1 + bass * 0.2})`;
   c.lineWidth = 1;
-  c.beginPath(); c.moveTo(0, floorY); c.lineTo(w, floorY); c.stroke();
-
-  // Beat pulse — subtle, centred on floor
-  if (beatPulse > 0.1) {
-    c.beginPath();
-    c.arc(w / 2, floorY, beatPulse * w * 0.25, 0, Math.PI * 2);
-    c.strokeStyle = `rgba(201,168,76,${beatPulse * 0.2})`;
-    c.lineWidth = beatPulse * 2;
-    c.stroke();
-  }
+  c.beginPath(); c.moveTo(eqX, eqY); c.lineTo(eqX + eqW, eqY); c.stroke();
 
   for (const p of particles) {
     p.x += p.vx * (1 + energy * 3);

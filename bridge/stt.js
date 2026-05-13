@@ -152,11 +152,12 @@ async function forwardToCAP(text, isFinal = false) {
   const body = sanitize(text);
   if (!body) return;
 
-  if (cpiInFlight) {
-    if (isFinal) { queuedFinal = body; console.log('CPI in flight — queuing final'); }
-    else console.log('CPI in flight — skipping chunk');
+  if (cpiInFlight && isFinal) {
+    queuedFinal = body;
+    console.log('CPI in flight — queuing final');
     return;
   }
+  // Chunks fire concurrently — no skip
   await sendToCPI(body);
 }
 
