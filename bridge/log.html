@@ -3,70 +3,235 @@
 <head>
 <meta charset="UTF-8">
 <title>MJ Live — Session Log</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,300;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0a0a; color: #ccc; font-family: 'Courier New', monospace; font-size: 12px; padding: 24px; }
-  h1 { color: #c9a84c; letter-spacing: 4px; font-size: 14px; margin-bottom: 4px; }
-  .meta { color: #555; margin-bottom: 20px; font-size: 11px; }
-  .controls { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; }
-  button { background: #c9a84c; color: #000; border: none; padding: 8px 20px; cursor: pointer; font-family: monospace; font-size: 11px; letter-spacing: 1px; }
-  button:hover { background: #e0b85a; }
-  button.reset { background: #333; color: #c0392b; }
-  button.reset:hover { background: #444; }
-  input { background: #111; border: 1px solid #333; color: #ccc; padding: 8px 12px; font-family: monospace; font-size: 11px; width: 260px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead tr { background: #111; }
-  th { color: #c9a84c; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; padding: 8px 10px; text-align: left; border-bottom: 1px solid #222; white-space: nowrap; }
-  td { padding: 8px 10px; border-bottom: 1px solid #1a1a1a; vertical-align: top; }
-  tr:hover td { background: #111; }
-  .ts    { color: #555; white-space: nowrap; font-size: 10px; }
-  .act   { text-align: center; font-size: 16px; font-weight: bold; }
-  .act-1 { color: #c9a84c; }
-  .act-2 { color: #c0392b; }
-  .act-3 { color: #4a7c9e; }
-  .act-4 { color: #27ae60; }
-  .emotion { color: #e67e22; font-size: 10px; }
-  .year  { color: #c9a84c; font-weight: bold; }
-  .event { color: #fff; }
-  .insight { color: #aaa; font-style: italic; }
-  .heard { color: #555; font-size: 10px; }
-  .rag   { color: #336699; font-size: 10px; max-width: 300px; }
-  .geo   { color: #555; font-size: 10px; }
-  .no-data { color: #333; text-align: center; padding: 60px; font-size: 14px; letter-spacing: 4px; }
-  #count { color: #555; }
+
+  body {
+    background: #080808;
+    color: #ccc;
+    font-family: 'Cormorant Garamond', serif;
+    padding: 32px 40px;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    border-bottom: 1px solid #1e1e1e;
+    padding-bottom: 16px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 8px;
+    color: #c9a84c;
+  }
+
+  .subtitle {
+    font-style: italic;
+    font-size: 13px;
+    color: #444;
+    letter-spacing: 1px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 28px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  input {
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 2px;
+    color: #ccc;
+    padding: 9px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    width: 280px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: #c9a84c; }
+  input::placeholder { color: #333; }
+
+  button {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 2px;
+    font-size: 13px;
+    padding: 9px 20px;
+    border: none;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .btn-refresh { background: #c9a84c; color: #000; }
+  .btn-refresh:hover { background: #e0c060; }
+  .btn-reset { background: #1e1e1e; color: #c0392b; border: 1px solid #2a2a2a; }
+  .btn-reset:hover { background: #2a1515; }
+
+  #count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #444; margin-left: 4px; }
+
+  /* Cards */
+  #cards { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: #0f0f0f;
+    border: 1px solid #1a1a1a;
+    border-radius: 3px;
+    display: grid;
+    grid-template-columns: 4px 1fr;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #2a2a2a; }
+
+  .act-bar { width: 4px; }
+  .act-1 .act-bar { background: #c9a84c; }
+  .act-2 .act-bar { background: #c0392b; }
+  .act-3 .act-bar { background: #4a7c9e; }
+  .act-4 .act-bar { background: #27ae60; }
+  .act-0 .act-bar { background: #2a2a2a; }
+
+  .card-body { padding: 16px 20px; }
+
+  .card-top {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .year {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 4px;
+    color: #fff;
+    line-height: 1;
+  }
+
+  .emotion-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: #1a1a1a;
+    color: #e67e22;
+    border: 1px solid #2a2010;
+  }
+
+  .act-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 1px;
+    margin-left: auto;
+  }
+
+  .ts-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #333;
+  }
+
+  .event {
+    font-size: 17px;
+    font-weight: 600;
+    color: #eee;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .insight {
+    font-style: italic;
+    font-size: 14px;
+    color: #c9a84c;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    padding-left: 12px;
+    border-left: 2px solid #2a2010;
+  }
+
+  .card-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #1a1a1a;
+  }
+
+  .footer-block { display: flex; flex-direction: column; gap: 3px; }
+
+  .footer-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #333;
+  }
+
+  .heard-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.4;
+  }
+
+  .rag-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #336699;
+    line-height: 1.4;
+  }
+
+  .geo-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #3a5a3a;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 80px 40px;
+    color: #222;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 6px;
+  }
 </style>
 </head>
 <body>
 
-<h1>MJ LIVE — SESSION LOG</h1>
-<div class="meta">Full pipeline thinking per event — what the AI heard, retrieved, and concluded</div>
+<header>
+  <div>
+    <h1>MJ Live — Session Log</h1>
+    <div class="subtitle">what the AI heard · what it retrieved · what it understood</div>
+  </div>
+</header>
 
 <div class="controls">
-  <button onclick="load()">REFRESH</button>
-  <button class="reset" onclick="resetSession()">RESET SESSION</button>
-  <input type="text" id="filter" placeholder="filter by transcript / emotion / year..." oninput="render()">
+  <button class="btn-refresh" onclick="load()">REFRESH</button>
+  <button class="btn-reset" onclick="resetSession()">RESET SESSION</button>
+  <input type="text" id="filter" placeholder="filter by transcript, emotion, year, event..." oninput="render()">
   <span id="count"></span>
 </div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Time</th>
-      <th>Act</th>
-      <th>Emotion</th>
-      <th>Year</th>
-      <th>Event</th>
-      <th>Insight</th>
-      <th>Heard (STT)</th>
-      <th>KB Retrieved</th>
-      <th>Location</th>
-    </tr>
-  </thead>
-  <tbody id="tbody"></tbody>
-</table>
+<div id="cards"></div>
 
 <script>
 let allRows = [];
+
+const ACT_NAMES = { 1: 'Act 1 — Wonder', 2: 'Act 2 — Anger', 3: 'Act 3 — Grief', 4: 'Act 4 — Hope' };
 
 async function load() {
   document.getElementById('count').textContent = 'loading...';
@@ -75,7 +240,7 @@ async function load() {
     allRows = await res.json();
     render();
   } catch (e) {
-    document.getElementById('tbody').innerHTML = `<tr><td colspan="9" class="no-data">ERROR — ${e.message}</td></tr>`;
+    document.getElementById('cards').innerHTML = `<div class="empty">ERROR — ${e.message}</div>`;
   }
 }
 
@@ -84,49 +249,60 @@ function render() {
   const rows = q ? allRows.filter(r =>
     (r.transcript||'').toLowerCase().includes(q) ||
     (r.emotion||'').toLowerCase().includes(q) ||
-    (r.year||'').toString().includes(q) ||
+    String(r.year||'').includes(q) ||
     (r.event||'').toLowerCase().includes(q)
   ) : allRows;
 
-  document.getElementById('count').textContent = `${rows.length} / ${allRows.rows} events`;
+  document.getElementById('count').textContent = `${rows.length} event${rows.length !== 1 ? 's' : ''}`;
 
   if (rows.length === 0) {
-    document.getElementById('tbody').innerHTML = `<tr><td colspan="9" class="no-data">NO EVENTS — start the demo or run /test-chronicle</td></tr>`;
+    document.getElementById('cards').innerHTML = `<div class="empty">NO EVENTS YET — start the demo or call /test-chronicle</div>`;
     return;
   }
 
-  const actColour = { 1: 'act-1', 2: 'act-2', 3: 'act-3', 4: 'act-4' };
-  const actLabel  = { 1: '①', 2: '②', 3: '③', 4: '④' };
-
-  document.getElementById('tbody').innerHTML = rows.map(r => {
-    const ts = r.ts ? new Date(r.ts).toLocaleTimeString() : '—';
+  document.getElementById('cards').innerHTML = rows.map(r => {
     const act = r.actNumber || 0;
-    const rag = (r.ragContext || '').substring(0, 180) + (r.ragContext?.length > 180 ? '…' : '');
-    const geo = r.country ? `${r.country}${r.lat ? ` (${Number(r.lat).toFixed(2)}, ${Number(r.lng).toFixed(2)})` : ''}` : '—';
-    return `<tr>
-      <td class="ts">${ts}</td>
-      <td class="act ${actColour[act] || ''}">${actLabel[act] || act || '—'}</td>
-      <td class="emotion">${r.emotion || '—'}</td>
-      <td class="year">${r.year || '—'}</td>
-      <td class="event">${r.event || '—'}</td>
-      <td class="insight">${r.insight || '—'}</td>
-      <td class="heard">${r.transcript || '—'}</td>
-      <td class="rag">${rag || '—'}</td>
-      <td class="geo">${geo}</td>
-    </tr>`;
-  }).join('');
+    const ts = r.ts ? new Date(r.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    const rag = (r.ragContext || '').substring(0, 220) + (r.ragContext?.length > 220 ? '…' : '');
+    const geo = r.country ? `${r.country}${r.lat ? `  ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}` : ''}` : '';
 
-  document.getElementById('count').textContent = `${rows.length} events`;
+    return `
+    <div class="card act-${act}">
+      <div class="act-bar"></div>
+      <div class="card-body">
+        <div class="card-top">
+          <div class="year">${r.year || '—'}</div>
+          ${r.emotion ? `<div class="emotion-badge">${r.emotion}</div>` : ''}
+          <div class="act-label">${ACT_NAMES[act] || ''}</div>
+          <div class="ts-label">${ts}</div>
+        </div>
+        <div class="event">${r.event || '—'}</div>
+        ${r.insight ? `<div class="insight">${r.insight}</div>` : ''}
+        <div class="card-footer">
+          <div class="footer-block">
+            <div class="footer-label">heard</div>
+            <div class="heard-text">${r.transcript || '—'}</div>
+          </div>
+          <div class="footer-block">
+            <div class="footer-label">kb retrieved</div>
+            <div class="rag-text">${rag || '—'}</div>
+          </div>
+          ${geo ? `<div class="footer-block">
+            <div class="footer-label">location</div>
+            <div class="geo-text">${geo}</div>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function resetSession() {
   if (!confirm('Reset session memory on CAP? This clears the AI emotional arc and key figures.')) return;
   try {
-    const CAP_BASE = '/session-log';
     await fetch('/reset-session', { method: 'POST' });
     allRows = [];
     render();
-    alert('Session reset.');
   } catch (e) {
     alert('Reset failed: ' + e.message);
   }
