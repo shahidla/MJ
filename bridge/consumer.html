@@ -9,7 +9,7 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #000;
+    background: #0f0f0f;
     overflow: hidden;
     width: 100vw;
     height: 100vh;
@@ -39,16 +39,18 @@
   #ws-status.ok  { color: #4caf50; }
   #ws-status.err { color: #f44336; }
 
-  /* ── Main layout — bottom 54% of screen ── */
+  /* ── Main layout — bottom 73% of screen. WebGL visible in top 27% only ── */
   #main-layout {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 54vh;
+    height: 73vh;
     display: flex;
     z-index: 20;
     pointer-events: none;
+    background: rgba(15,15,15,0.92);
+    border-top: 1px solid #2a2a2a;
   }
 
   /* ── Section shared styles ── */
@@ -62,12 +64,13 @@
 
   .section-heading {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(9px, 0.9vw, 11px);
-    letter-spacing: 4px;
-    color: rgba(201,168,76,0.4);
-    margin-bottom: 10px;
-    border-bottom: 1px solid rgba(201,168,76,0.1);
-    padding-bottom: 6px;
+    font-size: clamp(11px, 1.1vw, 14px);
+    letter-spacing: 5px;
+    color: #c9a84c;
+    opacity: 0.6;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 8px;
   }
 
   /* ── Pipeline panel — left 62% ── */
@@ -86,32 +89,29 @@
 
   .mode-row {
     display: grid;
-    grid-template-columns: 28px 1fr auto;
+    grid-template-columns: 32px 1fr auto;
     align-items: baseline;
-    gap: 10px;
-    padding: 3px 0;
-    transition: all 0.4s ease;
-    opacity: 0.2;
+    gap: 12px;
+    padding: 4px 0;
+    transition: all 0.35s ease;
+    opacity: 0.22;
   }
 
-  .mode-row.done { opacity: 0.4; }
-
-  .mode-row.active {
-    opacity: 1;
-  }
+  .mode-row.done { opacity: 0.45; }
+  .mode-row.active { opacity: 1; }
 
   .mode-num {
     font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(9px, 0.85vw, 11px);
-    color: rgba(255,255,255,0.3);
+    font-size: clamp(11px, 1vw, 13px);
+    color: #7a7a7a;
     transition: color 0.3s;
   }
 
   .mode-name {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(10px, 1vw, 13px);
+    font-size: clamp(13px, 1.3vw, 17px);
     letter-spacing: 3px;
-    color: rgba(255,255,255,0.3);
+    color: #7a7a7a;
     transition: all 0.3s;
     white-space: nowrap;
   }
@@ -119,8 +119,8 @@
   .mode-output {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: clamp(9px, 0.9vw, 12px);
-    color: rgba(255,255,255,0.25);
+    font-size: clamp(11px, 1.05vw, 14px);
+    color: #555;
     text-align: right;
     max-width: 34vw;
     overflow: hidden;
@@ -130,22 +130,22 @@
     opacity: 0;
   }
 
-  /* Active mode — pops out */
-  .mode-row.active .mode-num  { color: #c9a84c; }
+  /* Active mode — pops out bold and gold */
+  .mode-row.active .mode-num { color: #e5d4a8; font-weight: bold; }
   .mode-row.active .mode-name {
     color: #c9a84c;
-    font-size: clamp(12px, 1.3vw, 17px);
+    font-size: clamp(16px, 1.8vw, 22px);
     letter-spacing: 4px;
-    text-shadow: 0 0 20px rgba(201,168,76,0.5);
+    text-shadow: 0 0 24px rgba(201,168,76,0.6), 0 0 8px rgba(201,168,76,0.3);
   }
   .mode-row.active .mode-output {
-    color: rgba(255,255,255,0.7);
+    color: #f5f5f5;
     opacity: 1;
+    font-size: clamp(12px, 1.15vw, 15px);
   }
-  .mode-row.done .mode-output {
-    color: rgba(255,255,255,0.3);
-    opacity: 1;
-  }
+  .mode-row.done .mode-num  { color: #9a9a9a; }
+  .mode-row.done .mode-name { color: #9a9a9a; }
+  .mode-row.done .mode-output { color: #9a9a9a; opacity: 1; }
 
   /* Emotion bars */
   #emotion-bar-panel {
@@ -156,12 +156,11 @@
   }
   .emotion-row { display: flex; align-items: center; gap: 8px; }
   .emotion-label {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(8px, 0.85vw, 11px);
-    letter-spacing: 2px;
-    color: rgba(255,255,255,0.35);
-    width: 90px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 0.9vw, 12px);
+    letter-spacing: 1px;
+    color: #7a7a7a;
+    width: 100px;
     text-align: right;
     text-transform: lowercase;
   }
@@ -204,22 +203,28 @@
   }
 
   .chronicle-entry.entering {
-    transform: translateY(-12px);
+    transform: translateY(-20px);
     opacity: 0;
+    max-height: 0;
+  }
+
+  .chronicle-entry {
+    max-height: 60px;
+    transition: opacity 0.8s ease, transform 0.6s cubic-bezier(0.16,1,0.3,1), max-height 0.5s ease;
   }
 
   .ce-year {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(16px, 2vw, 26px);
+    font-size: clamp(20px, 2.5vw, 32px);
     letter-spacing: 3px;
-    color: rgba(201,168,76,0.9);
+    color: #c9a84c;
     line-height: 1;
   }
 
   .ce-event {
     font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(10px, 1.1vw, 14px);
-    color: rgba(255,255,255,0.7);
+    font-size: clamp(12px, 1.3vw, 16px);
+    color: #e8e8e8;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -227,8 +232,8 @@
 
   .ce-emotion {
     font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(8px, 0.75vw, 10px);
-    color: rgba(201,168,76,0.5);
+    font-size: clamp(9px, 0.85vw, 11px);
+    color: #a0d0a0;
     text-transform: lowercase;
     white-space: nowrap;
   }
@@ -809,11 +814,11 @@ function draw() {
   c.fillStyle = `rgba(0,0,0,${0.25 + bass * 0.1})`;
   c.fillRect(0, 0, w, h);
 
-  // EQ strip — thin band at top of panels area, not full screen
-  const floorY = h * 0.455;
+  // EQ strip — top 27% of screen only, panels take bottom 73%
+  const floorY = h * 0.27;
   const barCount = FREQ_BINS;
   const barW = w / barCount;
-  const maxBarH = h * 0.12; // max 12% of screen height
+  const maxBarH = h * 0.24; // max 24% upward from floor
 
   for (let i = 0; i < barCount; i++) {
     const val = freqData[i] / 255;

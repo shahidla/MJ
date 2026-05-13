@@ -204,16 +204,16 @@ app.post('/chronicle-event', express.json(), (req, res) => {
 });
 
 app.get('/test-chronicle', (req, res) => {
-  const payload = {
-    emotion: 'grief',
-    year: '1968',
-    event: 'Martin Luther King assassinated in Memphis Tennessee',
-    insight: 'The AI witnesses humanity at its darkest moment of broken promise.',
-    transcript: '1968 Martin Luther King assassinated Memphis Tennessee',
-    ragContext: '1968: Martin Luther King assassinated — April 4 1968. Martin Luther King is shot and killed on the balcony of the Lorraine Motel in Memphis Tennessee. Riots break out in 100 American cities. James Brown goes on television to calm the crowds. A prophet is silenced.'
+  // Test event — fires a sample chronicle entry to verify consumer display
+  const year = req.query.year || '1969';
+  const testEvents = {
+    '1968': { emotion: 'grief', year: '1968', event: 'Martin Luther King assassinated Memphis Tennessee', insight: 'A prophet is silenced — the dream survives the dreamer.', transcript: '1968 martin luther king assassinated memphis tennessee', ragContext: '1968: Martin Luther King assassinated — April 4 1968. Riots break out in 100 American cities.' },
+    '1969': { emotion: 'wonder', year: '1969', event: 'Neil Armstrong walks on the moon', insight: 'Humanity looks up — one small step and everything changes.', transcript: '1969 neil armstrong walks on the moon one small step for man', ragContext: '1969: Neil Armstrong walks on the moon — July 20 1969. Apollo 11 lands. 400000 engineers made it happen.' },
+    '1989': { emotion: 'hope', year: '1989', event: 'Berlin Wall falls — families reunited after 28 years', insight: 'The wall falls and humanity exhales together.', transcript: '1989 berlin wall falls east germany reunited', ragContext: '1989: Berlin Wall falls — November 9 1989. East Germans flood the checkpoints. Families separated 28 years reunited.' },
   };
+  const payload = testEvents[year] || testEvents['1969'];
   publish('chronicle/event', payload);
-  res.json({ published: true, payload });
+  res.json({ published: true, year, payload });
 });
 
 app.get('/cpi-log', (req, res) => res.json(sttAll.getCpiLog ? sttAll.getCpiLog() : []));
