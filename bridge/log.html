@@ -8,8 +8,8 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #080808;
-    color: #ccc;
+    background: #0f1117;
+    color: #e0e0e0;
     font-family: 'Cormorant Garamond', serif;
     padding: 32px 40px;
     min-height: 100vh;
@@ -20,21 +20,21 @@
     align-items: baseline;
     justify-content: space-between;
     margin-bottom: 28px;
-    border-bottom: 1px solid #1e1e1e;
+    border-bottom: 1px solid #21262d;
     padding-bottom: 16px;
   }
 
   h1 {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
+    font-size: 30px;
     letter-spacing: 8px;
-    color: #c9a84c;
+    color: #e3b341;
   }
 
   .subtitle {
     font-style: italic;
-    font-size: 13px;
-    color: #444;
+    font-size: 14px;
+    color: #6b7280;
     letter-spacing: 1px;
   }
 
@@ -47,73 +47,73 @@
   }
 
   input {
-    background: #111;
-    border: 1px solid #2a2a2a;
-    border-radius: 2px;
-    color: #ccc;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    color: #e0e0e0;
     padding: 9px 14px;
     font-family: 'Share Tech Mono', monospace;
     font-size: 12px;
-    width: 280px;
+    width: 300px;
     outline: none;
     transition: border-color 0.2s;
   }
-  input:focus { border-color: #c9a84c; }
-  input::placeholder { color: #333; }
+  input:focus { border-color: #e3b341; }
+  input::placeholder { color: #484f58; }
 
   button {
     font-family: 'Bebas Neue', sans-serif;
     letter-spacing: 2px;
     font-size: 13px;
-    padding: 9px 20px;
+    padding: 9px 22px;
     border: none;
     cursor: pointer;
-    border-radius: 2px;
+    border-radius: 4px;
     transition: background 0.2s;
   }
-  .btn-refresh { background: #c9a84c; color: #000; }
-  .btn-refresh:hover { background: #e0c060; }
-  .btn-reset { background: #1e1e1e; color: #c0392b; border: 1px solid #2a2a2a; }
+  .btn-refresh { background: #e3b341; color: #000; }
+  .btn-refresh:hover { background: #f0c84a; }
+  .btn-reset { background: #161b22; color: #f85149; border: 1px solid #30363d; }
   .btn-reset:hover { background: #2a1515; }
 
-  #count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #444; margin-left: 4px; }
+  #count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #6b7280; margin-left: 4px; }
 
   /* Cards */
-  #cards { display: flex; flex-direction: column; gap: 16px; }
+  #cards { display: flex; flex-direction: column; gap: 14px; }
 
   .card {
-    background: #0f0f0f;
-    border: 1px solid #1a1a1a;
-    border-radius: 3px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 6px;
     display: grid;
-    grid-template-columns: 4px 1fr;
+    grid-template-columns: 5px 1fr;
     overflow: hidden;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .card:hover { border-color: #2a2a2a; }
+  .card:hover { border-color: #30363d; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
 
-  .act-bar { width: 4px; }
-  .act-1 .act-bar { background: #c9a84c; }
-  .act-2 .act-bar { background: #c0392b; }
-  .act-3 .act-bar { background: #4a7c9e; }
-  .act-4 .act-bar { background: #27ae60; }
-  .act-0 .act-bar { background: #2a2a2a; }
+  .act-bar { width: 5px; }
+  .act-1 .act-bar { background: #e3b341; }
+  .act-2 .act-bar { background: #f85149; }
+  .act-3 .act-bar { background: #58a6ff; }
+  .act-4 .act-bar { background: #3fb950; }
+  .act-0 .act-bar { background: #30363d; }
 
-  .card-body { padding: 16px 20px; }
+  .card-body { padding: 18px 22px; }
 
   .card-top {
     display: flex;
     align-items: baseline;
     gap: 14px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
   }
 
   .year {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 32px;
+    font-size: 36px;
     letter-spacing: 4px;
-    color: #fff;
+    color: #f0f6fc;
     line-height: 1;
   }
 
@@ -122,17 +122,17 @@
     font-size: 10px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 2px;
-    background: #1a1a1a;
-    color: #e67e22;
-    border: 1px solid #2a2010;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: #1f1d0e;
+    color: #e3a436;
+    border: 1px solid #3d3210;
   }
 
   .act-label {
     font-family: 'Share Tech Mono', monospace;
     font-size: 10px;
-    color: #444;
+    color: #6b7280;
     letter-spacing: 1px;
     margin-left: auto;
   }
@@ -140,70 +140,70 @@
   .ts-label {
     font-family: 'Share Tech Mono', monospace;
     font-size: 10px;
-    color: #333;
+    color: #484f58;
   }
 
   .event {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 600;
-    color: #eee;
-    margin-bottom: 6px;
-    line-height: 1.3;
+    color: #f0f6fc;
+    margin-bottom: 8px;
+    line-height: 1.4;
   }
 
   .insight {
     font-style: italic;
-    font-size: 14px;
-    color: #c9a84c;
-    line-height: 1.5;
-    margin-bottom: 12px;
-    padding-left: 12px;
-    border-left: 2px solid #2a2010;
+    font-size: 15px;
+    color: #e3b341;
+    line-height: 1.6;
+    margin-bottom: 14px;
+    padding-left: 14px;
+    border-left: 2px solid #3d3210;
   }
 
   .card-footer {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #1a1a1a;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #21262d;
   }
 
-  .footer-block { display: flex; flex-direction: column; gap: 3px; }
+  .footer-block { display: flex; flex-direction: column; gap: 4px; }
 
   .footer-label {
     font-family: 'Share Tech Mono', monospace;
     font-size: 9px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: #333;
+    color: #484f58;
   }
 
   .heard-text {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: #666;
-    line-height: 1.4;
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.5;
   }
 
   .rag-text {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: #336699;
-    line-height: 1.4;
+    font-size: 12px;
+    color: #58a6ff;
+    line-height: 1.5;
   }
 
   .geo-text {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: #3a5a3a;
+    font-size: 12px;
+    color: #3fb950;
   }
 
   .empty {
     text-align: center;
     padding: 80px 40px;
-    color: #222;
+    color: #30363d;
     font-family: 'Bebas Neue', sans-serif;
     font-size: 18px;
     letter-spacing: 6px;
