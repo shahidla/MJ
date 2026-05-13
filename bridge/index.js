@@ -158,6 +158,16 @@ app.post('/reset-session', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+app.post('/clear-chronicle', async (req, res) => {
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/clearChronicle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const json = await r.json();
+    res.json(json);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, 'vocals.mp3')));
 app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, 'mj-audio-worklet.js')));
 app.get('/solace-client.js', (req, res) => res.sendFile(path.join(__dirname, 'node_modules/solclientjs/lib-browser/solclient.js')));
@@ -221,11 +231,8 @@ server.listen(PORT, () => {
   console.log(`Status:   http://localhost:${PORT}/status`);
   console.log(`Producer: http://localhost:${PORT}/producer`);
   console.log(`Consumer: http://localhost:${PORT}/consumer`);
-  if (TRANSPORT === 'solace') {
-    solaceSession = connectSolace();
-  } else {
-    sttAll.init((text, isFinal) => {
-      bus.emit('chronicle/transcript', { text, isFinal });
-    });
-  }
+  if (TRANSPORT === 'solace') solaceSession = connectSolace();
+  sttAll.init((text, isFinal) => {
+    bus.emit('chronicle/transcript', { text, isFinal });
+  });
 });

@@ -418,6 +418,13 @@ module.exports = class MJService extends cds.ApplicationService {
       return JSON.stringify({ sessionId: SESSION_ID });
     });
 
+    this.on('clearChronicle', async (req) => {
+      const db = await cds.connect.to('db');
+      await db.run(`DELETE FROM "MJ_CHRONICLEEVENTS"`);
+      console.log('CAP: ChronicleEvents cleared');
+      return JSON.stringify({ cleared: true, ts: new Date().toISOString() });
+    });
+
     this.on('generateFinale', async (req) => {
       if (sessionMemory.events.length < 3) {
         return JSON.stringify({ error: 'Not enough events witnessed yet' });

@@ -16,4 +16,7 @@ applications:
     # cf set-env mj-live-bridge SOLACE_VPN mj-live
     # cf set-env mj-live-bridge SOLACE_USERNAME solace-cloud-client
     # cf set-env mj-live-bridge SOLACE_PASSWORD <password>
-    # cf set-env mj-live-bridge ELEVENLABS_API_KEY <key>  (only when STT_ENABLED=true)
+    # cf set-env mj-live-bridge ELEVENLABS_API_KEY <key>
+    # cf set-env mj-live-bridge CPI_URL https://7f7132aetrial.it-cpitrial06-rt.cfapps.us10-001.hana.ondemand.com/http/mj-transcript
+    # cf set-env mj-live-bridge CPI_USER <btp-email>
+    # cf set-env mj-live-bridge CPI_PASSWORD <btp-password>

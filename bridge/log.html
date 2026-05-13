@@ -77,6 +77,8 @@
   .btn-reset:hover { background: #2a1515; }
   .btn-all { background: #161b22; color: #6b7280; border: 1px solid #30363d; }
   .btn-all:hover { background: #1f2937; }
+  .btn-clear { background: #2a0a0a; color: #f85149; border: 1px solid #4a1010; }
+  .btn-clear:hover { background: #3a1010; }
 
   #count { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #6b7280; margin-left: 4px; }
 
@@ -223,7 +225,8 @@
 
 <div class="controls">
   <button class="btn-refresh" onclick="load()">REFRESH</button>
-  <button class="btn-reset" onclick="resetSession()">RESET SESSION</button>
+  <button class="btn-clear" onclick="clearAll()">DELETE ALL ENTRIES</button>
+  <button class="btn-reset" onclick="resetSession()">RESET AI MEMORY</button>
   <button class="btn-all" id="btn-all" onclick="toggleAll()">SHOW ALL</button>
   <input type="text" id="filter" placeholder="filter by transcript, emotion, year, event..." oninput="render()">
   <span id="count"></span>
@@ -315,8 +318,19 @@ function render() {
   }).join('');
 }
 
+async function clearAll() {
+  if (!confirm('Delete ALL entries from the chronicle table? This cannot be undone.')) return;
+  try {
+    await fetch('/clear-chronicle', { method: 'POST' });
+    allRows = [];
+    render();
+  } catch (e) {
+    alert('Clear failed: ' + e.message);
+  }
+}
+
 async function resetSession() {
-  if (!confirm('Reset session memory on CAP? This clears the AI emotional arc and key figures.')) return;
+  if (!confirm('Reset AI memory? This clears the emotional arc and key figures — does not delete HANA entries.')) return;
   try {
     await fetch('/reset-session', { method: 'POST' });
     allRows = [];
