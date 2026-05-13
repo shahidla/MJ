@@ -37,6 +37,10 @@ function publishToSolace(topic, payload) {
   solaceSession.send(msg);
 }
 
+function publishStatus(mode, label) {
+  publishToSolace('pipeline/status', { mode, label });
+}
+
 // ── Session state — accumulates across all 4 acts ──────────────────────────
 // Temporal Memory (Mode 4): what the AI has witnessed so far
 // Relational Reasoning (Mode 5): connections the AI has drawn across acts
@@ -220,13 +224,18 @@ async function ragKeyword(db, transcript) {
 
 // ── Cognitive Pipeline ──────────────────────────────────────────────────────
 async function cognitiveProcess(db, transcript) {
+  publishStatus(1, 'transcript received — pipeline starting');
+
   // Mode 3: Contextual Retrieval — query HANA for historical context
+  publishStatus(3, 'embedding transcript — searching 64 events via vector similarity');
   const ragContext = await ragRetrieve(db, transcript);
 
   // Mode 4: Temporal Memory — build structured context of what AI has witnessed
+  publishStatus(4, 'building temporal memory context across all acts');
   const memoryContext = buildMemoryContext();
 
   // Mode 2 + 5: Classification + Relational Reasoning
+  publishStatus(2, 'Claude Haiku — classifying emotion / year / event / insight');
   const model = getModel();
   const systemPrompt = `You are an AI witnessing humanity's journey through Michael Jackson's music in real time.
 
@@ -262,7 +271,8 @@ Return ONLY valid JSON, no markdown:
     console.warn('Claude parse error:', e.message);
   }
 
-  // Mode 4: Update session memory with this event
+  // Mode 5: Update session memory with this event
+  publishStatus(5, 'connecting figures and events across acts');
   updateMemory({ ...result, transcript });
 
   console.log(`Cognitive modes 2-5 complete. Emotion: ${result.emotion}, Events seen: ${sessionMemory.events.length}`);
@@ -379,6 +389,7 @@ module.exports = class MJService extends cds.ApplicationService {
       const transition = detectActTransition();
       if (transition) {
         console.log(`CAP: act transition detected — ${transition.from} → ${transition.to}`);
+        publishStatus(6, 'act transition — generating between-act reflection');
         generateReflection(transition).then(sentence => {
           console.log('CAP: reflection:', sentence);
           publishToSolace('chronicle/reflection', { sentence, from: transition.from, to: transition.to });
@@ -403,7 +414,9 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: 'Not enough events witnessed yet' });
       }
       console.log('CAP: generating finale reflection...');
+      publishStatus(7, 'pattern synthesis — finding thread across all four acts');
       const reflection = await generateFinale();
+      publishStatus(8, 'generative expression — writing closing reflection');
       console.log('CAP: finale:', reflection);
       publishToSolace('chronicle/finale', { reflection });
       return JSON.stringify({ reflection });

@@ -349,6 +349,25 @@
     font-size: 8px;
   }
 
+  /* Pipeline status subtitle */
+  #pipeline-status {
+    position: fixed;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 45;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 0.9vw, 12px);
+    letter-spacing: 2px;
+    color: rgba(201,168,76,0.6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    text-transform: lowercase;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  #pipeline-status.visible { opacity: 1; }
+
   /* Between-act reflection */
   #reflection-panel {
     position: fixed;
@@ -490,6 +509,8 @@
   <div id="transcript-history"></div>
   <div id="transcript-partial"></div>
 </div>
+
+<div id="pipeline-status"></div>
 
 <div id="reflection-panel">
   <div id="reflection-text"></div>
@@ -670,13 +691,34 @@ function handleFinale(payload) {
   }, 4000);
 }
 
+let statusTimer = null;
+function showStatus(text) {
+  const el = document.getElementById('pipeline-status');
+  el.textContent = text;
+  el.classList.add('visible');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => el.classList.remove('visible'), 2500);
+}
+
+function handlePipelineStatus(payload) {
+  const { mode, label } = payload;
+  if (mode === 1) {
+    // Reset all modes at start of new pipeline run
+    ['mode-1','mode-2','mode-3','mode-4','mode-5','mode-6','mode-7','mode-8']
+      .forEach(id => document.getElementById(id).classList.remove('active','done'));
+  } else if (mode > 1 && mode <= 5) {
+    document.getElementById(`mode-${mode - 1}`)?.classList.replace('active', 'done');
+  }
+  if (mode >= 1 && mode <= 8) activateMode(`mode-${mode}`, 2500);
+  showStatus(label);
+}
+
 function handleChronicleEvent(payload) {
-  // Animate cognitive pipeline first, then reveal results
-  animateCognitiveModes(() => {
-    revealYear(payload.year, payload.event);
-    addChronicleEntry(payload);
-    updateEmotionBars(payload.emotion);
-  });
+  // Modes already lit by pipeline/status events — just reveal results
+  document.getElementById('mode-5')?.classList.replace('active', 'done');
+  revealYear(payload.year, payload.event);
+  addChronicleEntry(payload);
+  updateEmotionBars(payload.emotion);
 }
 
 function handleTranscript(text, isFinal) {
@@ -751,6 +793,10 @@ function connectSolace(cfg) {
       solace.SolclientFactory.createTopicDestination('chronicle/finale'),
       true, 'chronicle/finale', 1000
     );
+    session.subscribe(
+      solace.SolclientFactory.createTopicDestination('pipeline/status'),
+      true, 'pipeline/status', 1000
+    );
   });
   session.on(solace.SessionEventCode.MESSAGE, (msg) => {
     try {
@@ -774,6 +820,8 @@ function connectSolace(cfg) {
         handleReflection(payload);
       } else if (topic === 'chronicle/finale') {
         handleFinale(payload);
+      } else if (topic === 'pipeline/status') {
+        handlePipelineStatus(payload);
       }
     } catch (e) { console.error('Solace message error:', e); }
   });
