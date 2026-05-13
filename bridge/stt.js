@@ -16,13 +16,48 @@ function logTranscript(label, text) {
   fs.appendFileSync(LOG_FILE, line);
 }
 
-let connection     = null;
-let onTranscriptCb = null;
+let connection       = null;
+let onTranscriptCb   = null;
+let onChronicleEvCb  = null;
 
-// ── Forward committed transcript directly to CAP ─────────────────────────────
+// ── Batch: collect distinct transcript chunks, send every 5 new words ────────
+const BATCH_SIZE  = 5;
+const transcriptBatch = [];
+let lastBatchText = '';
+
+function newWordCount(prev, curr) {
+  const pw = prev.trim().split(/\s+/).filter(Boolean);
+  const cw = curr.trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while (i < pw.length && i < cw.length && pw[i] === cw[i]) i++;
+  return cw.length - i;
+}
+
+function addToBatch(text) {
+  const clean = sanitize(text);
+  if (!clean) return;
+  if (newWordCount(lastBatchText, clean) < 5) return; // skip if < 5 new words
+  lastBatchText = clean;
+  transcriptBatch.push(clean);
+  console.log(`[batch] ${transcriptBatch.length}/${BATCH_SIZE}: ${clean.substring(0, 60)}`);
+  if (transcriptBatch.length >= BATCH_SIZE) {
+    const combined = transcriptBatch.splice(0, BATCH_SIZE).join(' ... ');
+    lastBatchText = '';
+    forwardToCAP(combined);
+  }
+}
+
+// Call at audio end to flush any remaining partial batch
+function flushBatch() {
+  if (transcriptBatch.length === 0) return;
+  const combined = transcriptBatch.splice(0).join(' ');
+  console.log(`[batch] flushing ${transcriptBatch.length} remaining`);
+  forwardToCAP(combined);
+}
+
 const capCallLog = [];
 let capInFlight  = false;
-let queuedFinal  = null;
+const finalQueue = [];
 
 function sanitize(text) {
   return text
@@ -48,16 +83,23 @@ async function sendToCAP(body) {
     });
     entry.status = res.ok ? 'ok' : `error ${res.status}`;
     if (!res.ok) console.error('CAP error:', res.status);
-    else console.log('→ CAP:', body.substring(0, 80));
+    else {
+      console.log('→ CAP [FINAL]:', body);
+      try {
+        const json = await res.json();
+        const data = JSON.parse(json.value || '{}');
+        if (data && data.emotion !== undefined && onChronicleEvCb) onChronicleEvCb(data);
+      } catch (_) {}
+    }
   } catch (e) {
     entry.status = `error: ${e.message}`;
     console.error('CAP error:', e.message);
   } finally {
     capInFlight = false;
-    if (queuedFinal) {
-      const q = queuedFinal; queuedFinal = null;
-      console.log('Sending queued final');
-      await sendToCAP(q);
+    if (finalQueue.length > 0) {
+      const next = finalQueue.shift();
+      console.log(`Sending queued final (${finalQueue.length} still waiting)`);
+      await sendToCAP(next);
     }
   }
 }
@@ -66,8 +108,8 @@ async function forwardToCAP(text) {
   const body = sanitize(text);
   if (!body) return;
   if (capInFlight) {
-    queuedFinal = body; // queue — send after current completes
-    console.log('CAP in flight — queuing final');
+    finalQueue.push(body);
+    console.log(`CAP in flight — queued (${finalQueue.length} waiting)`);
     return;
   }
   await sendToCAP(body);
@@ -94,19 +136,21 @@ async function initElevenLabs() {
     connection.on('partial_transcript', (data) => {
       const text = data.text?.trim();
       if (!text) return;
-      console.log('[partial]', text.substring(0, 80) + (text.length > 80 ? '...' : ''));
+      console.log('[partial]', text);
       logTranscript('partial', text);
       onTranscriptCb && onTranscriptCb(text, false);
-      // Partials go to consumer UI only (mode 01) — not to CAP
+      addToBatch(text); // partials batch — only when 5+ new words
     });
 
     connection.on('committed_transcript', (data) => {
       const text = data.text?.trim();
       if (!text) return;
-      console.log('[FINAL]', text.substring(0, 100));
+      console.log('[FINAL]', text);
       logTranscript('FINAL', text);
       onTranscriptCb && onTranscriptCb(text, true);
-      forwardToCAP(text); // finals only → CAP
+      // Finals always go to CAP immediately — guaranteed chronicle
+      lastBatchText = text; // sync so next partial delta is relative to this
+      forwardToCAP(sanitize(text));
     });
 
     connection.on('error', (err) => {
@@ -154,4 +198,17 @@ function sendPcm(buffer) {
   sendToElevenLabs(buffer);
 }
 
-module.exports = { init, sendPcm, getCapLog: () => capCallLog };
+function isIdle() { return !capInFlight && finalQueue.length === 0 && transcriptBatch.length === 0; }
+
+function inject(text) {
+  const clean = sanitize(text);
+  if (!clean) return;
+  onTranscriptCb && onTranscriptCb(clean, true); // show in PERCEPTION
+  forwardToCAP(clean);                            // process through pipeline
+}
+
+module.exports = {
+  init, sendPcm, flushBatch, isIdle, inject,
+  getCapLog: () => capCallLog,
+  onChronicleEvent: (cb) => { onChronicleEvCb = cb; }
+};

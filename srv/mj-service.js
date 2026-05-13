@@ -184,22 +184,26 @@ async function getEmbedding(text) {
   return json.data[0].embedding;
 }
 
-// ── RAG: vector similarity search against HANA ───────────────────────────────
+// ── RAG: vector similarity search ────────────────────────────────────────────
+// Column names: HANA returns uppercase (YEAR, EMBEDDING), SQLite returns lowercase
+function col(row, name) { return row[name] ?? row[name.toLowerCase()] ?? row[name.toUpperCase()]; }
+
 async function ragRetrieve(db, transcript) {
   try {
-    const rows = await db.run(`SELECT YEAR, HEADLINE, CONTEXT, EMBEDDING FROM "MJ_HISTORYEVENTS" WHERE EMBEDDING IS NOT NULL`);
-    if (rows.length === 0) {
+    const rows = await SELECT.from('mj.HistoryEvents').columns('id','year','headline','context','embedding');
+    const withEmbed = rows.filter(r => col(r, 'embedding'));
+    if (withEmbed.length === 0) {
       console.warn('RAG: no embeddings found — falling back to keyword search');
       return ragKeyword(db, transcript);
     }
 
     const queryVec = await getEmbedding(transcript);
 
-    const scored = rows.map(r => ({
-      year:      r.YEAR,
-      headline:  r.HEADLINE,
-      context:   r.CONTEXT,
-      score:     cosineSimilarity(queryVec, JSON.parse(r.EMBEDDING))
+    const scored = withEmbed.map(r => ({
+      year:     col(r, 'year'),
+      headline: col(r, 'headline'),
+      context:  col(r, 'context'),
+      score:    cosineSimilarity(queryVec, JSON.parse(col(r, 'embedding')))
     })).sort((a, b) => b.score - a.score).slice(0, 2);
 
     console.log(`RAG: top matches — ${scored.map(s => `${s.year}(${s.score.toFixed(3)})`).join(', ')}`);
@@ -210,17 +214,20 @@ async function ragRetrieve(db, transcript) {
   }
 }
 
-// ── Keyword fallback (used before embeddings are generated) ──────────────────
+// ── Keyword fallback ──────────────────────────────────────────────────────────
 async function ragKeyword(db, transcript) {
   try {
-    const words = transcript.toLowerCase()
-      .split(/\s+/)
-      .map(w => w.replace(/[^a-z0-9]/g, ''))
-      .filter(w => w.length > 3 && !['that','this','with','from','have','been','they','were','what','when','will','your','more','than','just','into','over','some','also','about'].includes(w));
+    const stopwords = new Set(['that','this','with','from','have','been','they','were','what','when','will','your','more','than','just','into','over','some','also','about']);
+    const words = [...new Set(transcript.toLowerCase().split(/\s+/).map(w => w.replace(/[^a-z0-9]/g,'')).filter(w => w.length > 3 && !stopwords.has(w)))].slice(0, 15);
     if (words.length === 0) return '';
-    const conditions = words.map(w => `(LOWER(HEADLINE) LIKE '%${w}%' OR LOWER(CONTEXT) LIKE '%${w}%')`).join(' OR ');
-    const results = await db.run(`SELECT TOP 2 YEAR, HEADLINE, CONTEXT FROM "MJ_HISTORYEVENTS" WHERE ${conditions} ORDER BY YEAR ASC`);
-    return results.map(r => `${r.YEAR}: ${r.HEADLINE} — ${r.CONTEXT}`).join('\n\n');
+
+    const results = await SELECT.from('mj.HistoryEvents')
+      .columns('year','headline','context')
+      .where(words.map(w => `(lower(headline) like '%${w}%' or lower(context) like '%${w}%')`).join(' or '))
+      .limit(2)
+      .orderBy('year');
+
+    return results.map(r => `${col(r,'year')}: ${col(r,'headline')} — ${col(r,'context')}`).join('\n\n');
   } catch (e) {
     console.warn('RAG keyword error:', e.message);
     return '';
@@ -251,13 +258,14 @@ ${ragContext ? `HISTORICAL CONTEXT FROM KNOWLEDGE BASE:\n${ragContext}\n` : ''}
 
 Your task for this new transcript:
 1. Classify the dominant emotion (one or two words)
-2. Extract any specific year mentioned
+2. Extract any specific year mentioned (leave blank if none)
 3. Identify the historical event or human moment being described
-4. Generate ONE insight sentence — if you have witnessed related figures or events before, draw the connection explicitly (e.g. "MLK appeared earlier as hope; now he returns as a broken promise")
-5. Identify the country where this event occurred and its approximate coordinates
+4. Identify the primary figure referenced — a named person, leader, scientist, activist, or artist (e.g. "Martin Luther King", "Thomas Edison", "Neil Armstrong"). If MJ himself is the only speaker, leave blank.
+5. Generate ONE insight sentence — if you have witnessed related figures or events before, draw the connection explicitly (e.g. "Edison appeared earlier as wonder; now he returns as a warning")
+6. Identify the country where this event occurred and its approximate coordinates
 
 Return ONLY valid JSON, no markdown:
-{"emotion":"","year":"","event":"","insight":"one sentence that may reference earlier moments if relevant","country":"","lat":0.0,"lng":0.0}`;
+{"emotion":"","year":"","event":"","figure":"","insight":"one sentence that may reference earlier moments if relevant","country":"","lat":0.0,"lng":0.0}`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),
@@ -267,7 +275,7 @@ Return ONLY valid JSON, no markdown:
   const text = response.content.trim();
 
   // Parse Claude response
-  let result = { emotion: '', year: '', event: '', insight: '', country: '', lat: 0, lng: 0 };
+  let result = { emotion: '', year: '', event: '', figure: '', insight: '', country: '', lat: 0, lng: 0 };
   try {
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}') + 1;
@@ -374,6 +382,7 @@ module.exports = class MJService extends cds.ApplicationService {
         emotion:    result.emotion,
         year:       result.year,
         event:      result.event,
+        figure:     result.figure,
         insight:    result.insight,
         ragContext: result.ragContext,
         actNumber:  deriveActNumber(result.emotion),
@@ -394,6 +403,7 @@ module.exports = class MJService extends cds.ApplicationService {
         emotion:    result.emotion,
         year:       result.year,
         event:      result.event,
+        figure:     result.figure,
         insight:    result.insight,
         transcript: transcript,
         ragContext: result.ragContext,
@@ -422,24 +432,28 @@ module.exports = class MJService extends cds.ApplicationService {
     });
 
     this.on('clearChronicle', async (req) => {
-      const db = await cds.connect.to('db');
-      await db.run(`DELETE FROM "MJ_CHRONICLEEVENTS"`);
+      await DELETE.from('mj.ChronicleEvents');
       console.log('CAP: ChronicleEvents cleared');
       return JSON.stringify({ cleared: true, ts: new Date().toISOString() });
     });
 
     this.on('generateFinale', async (req) => {
-      if (sessionMemory.events.length < 3) {
+      if (sessionMemory.events.length < 1) {
         return JSON.stringify({ error: 'Not enough events witnessed yet' });
       }
       console.log('CAP: generating finale reflection...');
-      publishStatus(6, 'reflective evaluation — reviewing everything witnessed');
-      publishStatus(7, 'pattern synthesis — finding thread across all acts');
-      const reflection = await generateFinale();
-      publishStatus(8, 'generative expression — writing closing reflection');
-      console.log('CAP: finale:', reflection);
-      publishToSolace('chronicle/finale', { reflection });
-      return JSON.stringify({ reflection });
+      try {
+        publishStatus(6, 'reflective evaluation — reviewing everything witnessed');
+        publishStatus(7, 'pattern synthesis — finding thread across all acts');
+        const reflection = await generateFinale();
+        publishStatus(8, 'generative expression — writing closing reflection');
+        console.log('CAP: finale:', reflection);
+        publishToSolace('chronicle/finale', { reflection });
+        return JSON.stringify({ reflection });
+      } catch (e) {
+        console.error('CAP: finale error:', e.message);
+        return JSON.stringify({ error: e.message });
+      }
     });
 
     await super.init();

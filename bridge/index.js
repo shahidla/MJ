@@ -96,27 +96,31 @@ wss.on('connection', (ws, req) => {
     ws.on('close', () => console.log('Producer disconnected'));
 
   } else {
-    // Consumer — receives EQ and transcript events
+    // Consumer — receives all events via WebSocket
     console.log('Consumer connected, total:', wss.clients.size);
 
-    const onEq = (payload) => {
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({ topic: 'audio/equalizer', data: payload }));
-      }
+    const send = (topic, payload) => {
+      if (ws.readyState === 1) ws.send(JSON.stringify({ topic, data: payload }));
     };
 
-    const onTranscript = (payload) => {
-      if (ws.readyState === 1) {
-        ws.send(JSON.stringify({ topic: 'chronicle/transcript', data: payload }));
-      }
-    };
+    const onEq       = (p) => send('audio/equalizer',   p);
+    const onTranscript = (p) => send('chronicle/transcript', p);
+    const onChronicle  = (p) => send('chronicle/event',     p);
+    const onFinale     = (p) => send('chronicle/finale',    p);
+    const onStatus     = (p) => send('pipeline/status',     p);
 
-    bus.on('audio/equalizer', onEq);
-    bus.on('chronicle/transcript', onTranscript);
+    bus.on('audio/equalizer',       onEq);
+    bus.on('chronicle/transcript',  onTranscript);
+    bus.on('chronicle/event',       onChronicle);
+    bus.on('chronicle/finale',      onFinale);
+    bus.on('pipeline/status',       onStatus);
 
     ws.on('close', () => {
-      bus.off('audio/equalizer', onEq);
+      bus.off('audio/equalizer',      onEq);
       bus.off('chronicle/transcript', onTranscript);
+      bus.off('chronicle/event',      onChronicle);
+      bus.off('chronicle/finale',     onFinale);
+      bus.off('pipeline/status',      onStatus);
       console.log('Consumer disconnected, total:', wss.clients.size);
     });
   }
@@ -129,13 +133,34 @@ app.get('/log',      (req, res) => res.sendFile(path.join(__dirname, 'log.html')
 
 const CAP_BASE = () => (process.env.CAP_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript').replace('/odata/v4/mj/receiveTranscript', '');
 
+async function waitForSttIdle(maxWaitMs = 30000) {
+  sttAll.flushBatch && sttAll.flushBatch(); // send any remaining < 5 transcripts
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    if (sttAll.isIdle()) return;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  console.warn('Finale: STT queue did not drain in time — proceeding anyway');
+}
+
 async function triggerFinale() {
+  console.log('Finale: waiting for STT queue to drain...');
+  await waitForSttIdle();
+  console.log('Finale: queue drained — calling CAP generateFinale');
   try {
     const r = await fetch(`${CAP_BASE()}/odata/v4/mj/generateFinale`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
     });
     const json = await r.json();
-    console.log('Finale triggered:', JSON.stringify(json).substring(0, 100));
+    if (json.error) { console.error('Finale CAP error:', JSON.stringify(json.error)); return; }
+    const data = JSON.parse(json.value || '{}');
+    console.log('Finale triggered:', JSON.stringify(data).substring(0, 120));
+    if (data.error) { console.error('Finale logic error:', data.error); return; }
+    if (data.reflection) {
+      bus.emit('chronicle/finale', { reflection: data.reflection });
+    } else {
+      console.error('Finale: no reflection in response:', JSON.stringify(data));
+    }
   } catch (e) {
     console.error('Finale trigger error:', e.message);
   }
@@ -212,6 +237,15 @@ app.get('/test-publish', (req, res) => {
   res.json({ published: true, topic: 'test/bridge', payload: testPayload });
 });
 
+// ── Inject: paste any sentence → shows in PERCEPTION + full pipeline ──────────
+app.post('/inject', express.json(), (req, res) => {
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'no text' });
+  sttAll.inject(text);
+  console.log('[inject]', text);
+  res.json({ ok: true, text });
+});
+
 app.post('/chronicle-event', express.json(), (req, res) => {
   publish('chronicle/event', req.body);
   res.status(204).end();
@@ -250,5 +284,8 @@ server.listen(PORT, () => {
   if (TRANSPORT === 'solace') solaceSession = connectSolace();
   sttAll.init((text, isFinal) => {
     bus.emit('chronicle/transcript', { text, isFinal });
+  });
+  sttAll.onChronicleEvent((data) => {
+    bus.emit('chronicle/event', data);
   });
 });

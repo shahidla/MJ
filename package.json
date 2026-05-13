@@ -36,7 +36,7 @@
     },
     "[development]": {
       "requires": {
-        "db": { "kind": "sqlite", "credentials": { "url": ":memory:" } }
+        "db": { "kind": "sqlite", "credentials": { "url": "db.sqlite" } }
       }
     }
   }

@@ -72,20 +72,23 @@
   #pipeline-modes {
     display: flex;
     flex-direction: column;
-    gap: 4px;
     flex: 1;
     overflow: hidden;
   }
 
   .mode-row {
     display: grid;
-    grid-template-columns: 36px 1fr 1fr;
+    grid-template-columns: 36px minmax(100px, 240px) 1fr;
     align-items: center;
     gap: 14px;
-    padding: 5px 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border-bottom: 1px solid #1a1a1a;
     opacity: 0.2;
     transition: all 0.35s ease;
   }
+  .mode-row:last-child { border-bottom: none; }
   .mode-row.done   { opacity: 0.45; }
   .mode-row.active { opacity: 1; }
 
@@ -117,6 +120,7 @@
     opacity: 0;
   }
 
+
   /* Active mode — colour + glow only, no size change */
   .mode-row.active .mode-num    { color: #e5d4a8; }
   .mode-row.active .mode-name   { color: #c9a84c; text-shadow: 0 0 18px rgba(201,168,76,0.5); letter-spacing: 4px; }
@@ -124,6 +128,15 @@
   .mode-row.done   .mode-num    { color: #666; }
   .mode-row.done   .mode-name   { color: #888; }
   .mode-row.done   .mode-output { color: #888; opacity: 1; }
+
+  /* Mode 01 PERCEPTION — fixed layout, lyrics don't push other rows */
+  #mrow-1                         { align-items: center; }
+  #mrow-1 .mode-name              { color: #c9a84c; letter-spacing: 4px; }
+  #mrow-1 .mode-output            { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mrow-1.active .mode-output,
+  #mrow-1.done   .mode-output     { color: #ffffff; font-size: clamp(18px, 1.9vw, 26px); font-style: italic; }
+  #mrow-1.active .mode-num        { color: #ffffff; }
+  #mrow-1.done   .mode-num        { color: #c9a84c; }
 
   /* Chronicle: right 25% */
   #chronicle-panel {
@@ -479,7 +492,7 @@ function resetModes() {
     const row = document.getElementById(`mrow-${i}`);
     if (row) row.classList.remove('active', 'done');
   }
-  setModeOutput(1, 'listening...');
+  lastPartialText = '';
 }
 
 // ── Pipeline status subtitle ─────────────────────────────────────────────────
@@ -503,9 +516,13 @@ function handlePipelineStatus(payload) {
 }
 
 // ── Chronicle/event handler ───────────────────────────────────────────────────
+const seenEvents = new Set();
 function handleChronicleEvent(payload) {
+  const key = payload.transcript?.substring(0, 40) + payload.emotion;
+  if (seenEvents.has(key)) return;
+  seenEvents.add(key);
   setModeOutput(1, payload.transcript);
-  setModeOutput(2, `${payload.emotion || '—'} · ${payload.year || '—'}`);
+  setModeOutput(2, `${payload.emotion || '—'} · ${payload.year || '—'}${payload.figure ? ' · ' + payload.figure : ''}`);
   setModeOutput(3, (payload.ragContext || '').substring(0, 100) + (payload.ragContext?.length > 100 ? '…' : ''));
   setModeOutput(4, Object.keys(emotionCounts).join(' → ') || '—');
   setModeOutput(5, payload.insight);
@@ -527,6 +544,7 @@ function addChronicleEntry(payload) {
   entry.innerHTML = `
     <div class="ce-year">${payload.year || '—'}</div>
     <div class="ce-event">${payload.event || ''}</div>
+    ${payload.figure ? `<div class="ce-event" style="color:#c9a84c;font-size:clamp(11px,1.1vw,14px)">${payload.figure}</div>` : ''}
     <div class="ce-emotion">${(payload.emotion || '').split(',')[0].trim()}</div>
   `;
   container.insertBefore(entry, container.firstChild);
@@ -547,14 +565,38 @@ function handleFinale(payload) {
   showStatus('AI closing reflection');
 }
 
-// ── STT transcript (live partial → mode 01) ───────────────────────────────────
+// ── STT transcript (live partial/final → mode 01, delta only) ────────────────
+let lastPartialText  = '';
+let perceptionTimer  = null;
+
+function getDelta(prev, curr) {
+  const pw = prev.trim().split(/\s+/).filter(Boolean);
+  const cw = curr.trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while (i < pw.length && i < cw.length && pw[i] === cw[i]) i++;
+  return cw.slice(i).join(' ');
+}
+
 function handleTranscript(text, isFinal) {
-  if (!isFinal && text) {
-    setModeOutput(1, text.substring(0, 120) + (text.length > 120 ? '…' : ''));
-    const r1 = document.getElementById('mrow-1');
-    if (r1 && !r1.classList.contains('active')) {
-      r1.style.opacity = '0.55';
-    }
+  if (!text) return;
+  const el = document.getElementById('mout-1');
+  if (!el) return;
+
+  const delta = getDelta(lastPartialText, text);
+  lastPartialText = text;
+  const display = delta || text; // fallback to full text if no delta
+
+  el.style.transition = 'opacity 0.15s ease';
+  el.style.opacity = '0';
+  clearTimeout(perceptionTimer);
+  perceptionTimer = setTimeout(() => {
+    el.textContent = display;
+    el.style.opacity = '1';
+  }, 150);
+
+  const r1 = document.getElementById('mrow-1');
+  if (r1 && !r1.classList.contains('active') && !r1.classList.contains('done')) {
+    r1.classList.add('active');
   }
 }
 
@@ -565,8 +607,12 @@ function connectBridge() {
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.topic === 'audio/equalizer' && msg.data) handleEqPayload(msg.data);
-      if (msg.topic === 'chronicle/transcript' && msg.data) handleTranscript(msg.data.text, msg.data.isFinal);
+      if (!msg.data) return;
+      if (msg.topic === 'audio/equalizer')     handleEqPayload(msg.data);
+      if (msg.topic === 'chronicle/transcript') handleTranscript(msg.data.text, msg.data.isFinal);
+      if (msg.topic === 'chronicle/event')      handleChronicleEvent(msg.data);
+      if (msg.topic === 'chronicle/finale')     handleFinale(msg.data);
+      if (msg.topic === 'pipeline/status')      handlePipelineStatus(msg.data);
     } catch (_) {}
   };
   ws.onclose = () => {

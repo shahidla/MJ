@@ -19,6 +19,7 @@ entity ChronicleEvents {
   emotion       : String(100);
   year          : String(20);
   event         : String(500);
+  figure        : String(200);  // primary historical figure referenced
   insight       : String(1000);
   ragContext    : String(2000); // what HANA Vector returned
   actNumber     : Integer;      // 1-4

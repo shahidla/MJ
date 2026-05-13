@@ -223,6 +223,11 @@
   </div>
 </header>
 
+<div style="display:flex;gap:10px;margin-bottom:18px;align-items:center;">
+  <input type="text" id="inject-text" placeholder="paste a sentence → PERCEPTION + pipeline..." style="background:#161b22;border:1px solid #30363d;border-radius:4px;color:#e0e0e0;padding:9px 14px;font-family:'Share Tech Mono',monospace;font-size:12px;flex:1;outline:none;" onkeydown="if(event.key==='Enter')injectText()">
+  <button onclick="injectText()" style="font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:13px;padding:9px 22px;border:none;cursor:pointer;border-radius:4px;background:#58a6ff;color:#000;">INJECT</button>
+</div>
+
 <div class="controls">
   <button class="btn-refresh" onclick="load()">REFRESH</button>
   <button class="btn-clear" onclick="clearAll()">DELETE ALL ENTRIES</button>
@@ -303,11 +308,20 @@ function render() {
           <div class="ts-label">${ts}</div>
         </div>
         <div class="event">${r.event || '—'}</div>
+        ${r.figure ? `<div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#c9a84c;letter-spacing:1px;margin-bottom:6px;">figure: ${r.figure}</div>` : ''}
         ${r.insight ? `<div class="insight">${r.insight}</div>` : ''}
         <div class="card-footer">
           <div class="footer-block">
-            <div class="footer-label">heard</div>
-            <div class="heard-text">${r.transcript || '—'}</div>
+            <div class="footer-label">heard (full)</div>
+            <div class="heard-text" style="white-space:pre-wrap;word-break:break-word;">${r.transcript || '—'}</div>
+          </div>
+          <div class="footer-block">
+            <div class="footer-label">claude response</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:1.6;">
+              <span style="color:#6b7280;">emotion</span> <span style="color:#e3b341;">${r.emotion || '—'}</span>
+              &nbsp;·&nbsp;<span style="color:#6b7280;">year</span> <span style="color:#58a6ff;">${r.year || '—'}</span>
+              ${r.figure ? `&nbsp;·&nbsp;<span style="color:#6b7280;">figure</span> <span style="color:#c9a84c;">${r.figure}</span>` : ''}
+            </div>
           </div>
           <div class="footer-block">
             <div class="footer-label">kb retrieved</div>
@@ -357,6 +371,17 @@ async function loadCpiLog() {
           <span style="font-family:'Cormorant Garamond',serif;font-size:13px;color:#8b949e;">${r.transcript}</span>
         </div>`).join('');
   } catch(e) {}
+}
+
+async function injectText() {
+  const input = document.getElementById('inject-text');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    await fetch('/inject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    setTimeout(load, 3000); // reload log after pipeline has time to process
+  } catch (e) { alert('Inject failed: ' + e.message); }
 }
 
 load();
