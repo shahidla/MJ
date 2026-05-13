@@ -230,7 +230,7 @@ app.get('/test-chronicle', (req, res) => {
   res.json({ published: true, year, payload });
 });
 
-app.get('/cpi-log', (req, res) => res.json(sttAll.getCpiLog ? sttAll.getCpiLog() : []));
+app.get('/cap-log', (req, res) => res.json(sttAll.getCapLog ? sttAll.getCapLog() : []));
 
 app.get('/status', (req, res) => {
   res.json({

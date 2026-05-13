@@ -234,7 +234,7 @@
 </div>
 
 <div id="cpi-section" style="margin-bottom:24px;">
-  <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;color:#484f58;margin-bottom:10px;">CPI CALLS THIS SESSION</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;color:#484f58;margin-bottom:10px;">CAP CALLS THIS SESSION</div>
   <div id="cpi-cards" style="display:flex;flex-direction:column;gap:6px;"></div>
 </div>
 
@@ -347,7 +347,7 @@ async function resetSession() {
 
 async function loadCpiLog() {
   try {
-    const rows = await fetch('/cpi-log').then(r => r.json());
+    const rows = await fetch('/cap-log').then(r => r.json());
     document.getElementById('cpi-cards').innerHTML = rows.length === 0
       ? '<div style="color:#30363d;font-family:\'Share Tech Mono\',monospace;font-size:11px;">no CPI calls yet</div>'
       : rows.map(r => `

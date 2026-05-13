@@ -732,6 +732,30 @@ Complete pass through all project files. Grouped by file and severity.
 - **Deployed to CF:** Phase 7 complete — bridge + CAP running
 **Deployed 2026-05-13 (partial):** Further changes pending deploy
 
+**All decisions locked 2026-05-13 — build from this:**
+
+**Architecture (Path 2 — CPI removed):**
+- CPI removed from active path entirely. Bridge → ElevenLabs → CAP direct.
+- Finals only, no chunks. One committed transcript per utterance → CAP.
+- Finale: audio ends → 5s delay → bridge → CAP generateFinale direct.
+- CPI iFlow stays deployed but not in active path.
+- AssemblyAI removed — ElevenLabs only. CPI has no real job without it.
+- sessionMemory is in-process per CAP instance. Multi-user needs DB-backed sessions (future).
+
+**Cognitive Modes:**
+- Mode 01 PERCEPTION: live STT partial, updates real time from ElevenLabs, no CPI wait
+- Modes 02-05: pipeline/status events trigger lighting, chronicle/event fills data
+- Modes 06-08: REMOVED from display entirely. Finale happens silently then appears.
+- Finale: panels dim, full screen takeover, large font, Claude's own words, nothing hardcoded.
+
+**Consumer Layout (locked):**
+- Top 80%: Left 75% (pipeline modes 01-05) + Right 25% (chronicle)
+- Bottom 20%: Left 50% (dedicated EQ canvas) + Right 50% (emotion arc)
+- Mode name and output SAME font size. Active mode pops via colour + glow only.
+- Projector-readable from 10 metres. One thing dominates at a time.
+- Chronicle: newest on top, year large, event short, older entries fade.
+- Full-screen background canvas: pure dark only, no EQ rendering on it.
+
 **Architecture decisions updated 2026-05-13:**
 - Between-act reflections REMOVED — one story, one voice, one reflection at the end
 - Finale auto-triggers when audio ends (producer sends audio_ended → bridge → CAP generateFinale)
