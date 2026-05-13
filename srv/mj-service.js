@@ -351,10 +351,19 @@ module.exports = class MJService extends cds.ApplicationService {
 
       console.log('CAP: received transcript:', transcript);
 
-      const db = await cds.connect.to('db');
+      let db;
+      try { db = await cds.connect.to('db'); } catch (e) {
+        console.error('CAP: DB connect failed:', e.message);
+        return JSON.stringify({ error: 'db_unavailable' });
+      }
 
-      // Run cognitive pipeline
-      const result = await cognitiveProcess(db, transcript);
+      let result;
+      try {
+        result = await cognitiveProcess(db, transcript);
+      } catch (e) {
+        console.error('CAP: pipeline error:', e.message);
+        return JSON.stringify({ error: e.message });
+      }
 
       // Persist to HANA/SQLite
       const event = {
@@ -372,8 +381,13 @@ module.exports = class MJService extends cds.ApplicationService {
         lat:        result.lat || 0,
         lng:        result.lng || 0
       };
-      await INSERT.into(ChronicleEvents).entries(event);
-      console.log('CAP: persisted chronicle event');
+      try {
+        await INSERT.into(ChronicleEvents).entries(event);
+        console.log('CAP: persisted chronicle event');
+      } catch (e) {
+        console.error('CAP: persist failed (HANA pool?):', e.message);
+        // Continue — still publish to Solace even if persist fails
+      }
 
       // Publish chronicle/event to Solace
       const solacePayload = {

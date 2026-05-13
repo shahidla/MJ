@@ -24,7 +24,11 @@
   "cds": {
     "requires": {
       "db": {
-        "kind": "hana"
+        "kind": "hana",
+        "pool": {
+          "max": 10,
+          "acquireTimeoutMillis": 15000
+        }
       },
       "auth": {
         "kind": "dummy"
