@@ -795,11 +795,12 @@ Complete pass through all project files. Grouped by file and severity.
 - The `"act"` field was already removed from CPI's Claude output schema — but the entire Claude call in CPI needs to go. This is the full resolution of the "we don't need act in CPI Claude" decision: the answer is we don't need Claude in CPI at all.
 - **No code dependency** — pure CPI UI change
 
-**5. Run log — full pipeline thinking per session**
-- Current state: ChronicleEvents in HANA has per-event data, but no easy way to see a full session at a glance with all pipeline fields
-- What to build: a new CAP endpoint `/odata/v4/mj/sessionLog` (or a formatted GET on ChronicleEvents) that returns a table per session: timestamp | transcript | emotion | year | event | insight | ragContext | actNumber
-- User wants to see "the full thinking" — what the AI heard, what it retrieved, what it concluded, all in one view
-- Could also be a simple HTML page served from the bridge at `/log`
+**5. Run log — COMPLETE ✅**
+- `/log` route on bridge serves log.html — dark-themed table, auto-refreshes every 10s
+- `/session-log` proxy endpoint fetches ChronicleEvents from CAP (avoids CORS)
+- `/reset-session` proxy endpoint triggers CAP resetSession action
+- Columns: Time | Act | Emotion | Year | Event | Insight | Heard (STT) | KB Retrieved | Location
+- Filter box + Reset Session button
 
 ---
 

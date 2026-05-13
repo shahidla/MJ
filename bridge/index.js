@@ -132,6 +132,29 @@ wss.on('connection', (ws, req) => {
 // --- Routes ---
 app.get('/producer', (req, res) => res.sendFile(path.join(__dirname, 'producer.html')));
 app.get('/consumer', (req, res) => res.sendFile(path.join(__dirname, 'consumer.html')));
+app.get('/log',      (req, res) => res.sendFile(path.join(__dirname, 'log.html')));
+
+const CAP_BASE = () => (process.env.CAP_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript').replace('/odata/v4/mj/receiveTranscript', '');
+
+app.get('/session-log', async (req, res) => {
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/ChronicleEvents?$orderby=ts asc&$top=200`);
+    const json = await r.json();
+    res.json(json.value || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/reset-session', async (req, res) => {
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/resetSession`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const json = await r.json();
+    res.json(json);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, '../app/media/vocals.mp3')));
 app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, '../app/mj-audio-worklet.js')));
 app.get('/solace-client.js', (req, res) => res.sendFile(path.join(__dirname, 'node_modules/solclientjs/lib-browser/solclient.js')));

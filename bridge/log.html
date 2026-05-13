@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MJ Live — Session Log</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0a; color: #ccc; font-family: 'Courier New', monospace; font-size: 12px; padding: 24px; }
+  h1 { color: #c9a84c; letter-spacing: 4px; font-size: 14px; margin-bottom: 4px; }
+  .meta { color: #555; margin-bottom: 20px; font-size: 11px; }
+  .controls { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; }
+  button { background: #c9a84c; color: #000; border: none; padding: 8px 20px; cursor: pointer; font-family: monospace; font-size: 11px; letter-spacing: 1px; }
+  button:hover { background: #e0b85a; }
+  button.reset { background: #333; color: #c0392b; }
+  button.reset:hover { background: #444; }
+  input { background: #111; border: 1px solid #333; color: #ccc; padding: 8px 12px; font-family: monospace; font-size: 11px; width: 260px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #111; }
+  th { color: #c9a84c; text-transform: uppercase; letter-spacing: 2px; font-size: 10px; padding: 8px 10px; text-align: left; border-bottom: 1px solid #222; white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid #1a1a1a; vertical-align: top; }
+  tr:hover td { background: #111; }
+  .ts    { color: #555; white-space: nowrap; font-size: 10px; }
+  .act   { text-align: center; font-size: 16px; font-weight: bold; }
+  .act-1 { color: #c9a84c; }
+  .act-2 { color: #c0392b; }
+  .act-3 { color: #4a7c9e; }
+  .act-4 { color: #27ae60; }
+  .emotion { color: #e67e22; font-size: 10px; }
+  .year  { color: #c9a84c; font-weight: bold; }
+  .event { color: #fff; }
+  .insight { color: #aaa; font-style: italic; }
+  .heard { color: #555; font-size: 10px; }
+  .rag   { color: #336699; font-size: 10px; max-width: 300px; }
+  .geo   { color: #555; font-size: 10px; }
+  .no-data { color: #333; text-align: center; padding: 60px; font-size: 14px; letter-spacing: 4px; }
+  #count { color: #555; }
+</style>
+</head>
+<body>
+
+<h1>MJ LIVE — SESSION LOG</h1>
+<div class="meta">Full pipeline thinking per event — what the AI heard, retrieved, and concluded</div>
+
+<div class="controls">
+  <button onclick="load()">REFRESH</button>
+  <button class="reset" onclick="resetSession()">RESET SESSION</button>
+  <input type="text" id="filter" placeholder="filter by transcript / emotion / year..." oninput="render()">
+  <span id="count"></span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Act</th>
+      <th>Emotion</th>
+      <th>Year</th>
+      <th>Event</th>
+      <th>Insight</th>
+      <th>Heard (STT)</th>
+      <th>KB Retrieved</th>
+      <th>Location</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<script>
+let allRows = [];
+
+async function load() {
+  document.getElementById('count').textContent = 'loading...';
+  try {
+    const res = await fetch('/session-log');
+    allRows = await res.json();
+    render();
+  } catch (e) {
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="9" class="no-data">ERROR — ${e.message}</td></tr>`;
+  }
+}
+
+function render() {
+  const q = document.getElementById('filter').value.toLowerCase();
+  const rows = q ? allRows.filter(r =>
+    (r.transcript||'').toLowerCase().includes(q) ||
+    (r.emotion||'').toLowerCase().includes(q) ||
+    (r.year||'').toString().includes(q) ||
+    (r.event||'').toLowerCase().includes(q)
+  ) : allRows;
+
+  document.getElementById('count').textContent = `${rows.length} / ${allRows.rows} events`;
+
+  if (rows.length === 0) {
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="9" class="no-data">NO EVENTS — start the demo or run /test-chronicle</td></tr>`;
+    return;
+  }
+
+  const actColour = { 1: 'act-1', 2: 'act-2', 3: 'act-3', 4: 'act-4' };
+  const actLabel  = { 1: '①', 2: '②', 3: '③', 4: '④' };
+
+  document.getElementById('tbody').innerHTML = rows.map(r => {
+    const ts = r.ts ? new Date(r.ts).toLocaleTimeString() : '—';
+    const act = r.actNumber || 0;
+    const rag = (r.ragContext || '').substring(0, 180) + (r.ragContext?.length > 180 ? '…' : '');
+    const geo = r.country ? `${r.country}${r.lat ? ` (${Number(r.lat).toFixed(2)}, ${Number(r.lng).toFixed(2)})` : ''}` : '—';
+    return `<tr>
+      <td class="ts">${ts}</td>
+      <td class="act ${actColour[act] || ''}">${actLabel[act] || act || '—'}</td>
+      <td class="emotion">${r.emotion || '—'}</td>
+      <td class="year">${r.year || '—'}</td>
+      <td class="event">${r.event || '—'}</td>
+      <td class="insight">${r.insight || '—'}</td>
+      <td class="heard">${r.transcript || '—'}</td>
+      <td class="rag">${rag || '—'}</td>
+      <td class="geo">${geo}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('count').textContent = `${rows.length} events`;
+}
+
+async function resetSession() {
+  if (!confirm('Reset session memory on CAP? This clears the AI emotional arc and key figures.')) return;
+  try {
+    const CAP_BASE = '/session-log';
+    await fetch('/reset-session', { method: 'POST' });
+    allRows = [];
+    render();
+    alert('Session reset.');
+  } catch (e) {
+    alert('Reset failed: ' + e.message);
+  }
+}
+
+load();
+setInterval(load, 10000);
+</script>
+</body>
+</html>
