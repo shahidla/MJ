@@ -245,7 +245,7 @@ async function load() {
     if (!currentSessionId) {
       const s = await fetch('/current-session').then(r => r.json());
       currentSessionId = s.sessionId;
-      document.getElementById('session-id').textContent = `session: ${currentSessionId?.substring(0,8)}...`;
+      document.getElementById('session-id').textContent = `session: ${currentSessionId}`;
     }
     const url = showAll ? '/session-log' : `/session-log?sessionId=${currentSessionId}`;
     const res = await fetch(url);

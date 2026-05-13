@@ -4,7 +4,8 @@ const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 const solace = require('solclientjs');
 const { randomUUID } = require('crypto');
 
-const SESSION_ID = randomUUID();
+const _now = new Date();
+const SESSION_ID = `${_now.toISOString().slice(0,10)}-${_now.toTimeString().slice(0,8).replace(/:/g,'-')}-${randomUUID().slice(0,6)}`;
 console.log(`CAP session ID: ${SESSION_ID}`);
 
 // ── Solace publisher ────────────────────────────────────────────────────────
