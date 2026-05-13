@@ -50,7 +50,7 @@ async function initElevenLabs() {
 
       partialBuffer = text;
       if (partialBuffer.length >= CHUNK_SIZE) {
-        const chunk = partialBuffer.substring(0, CHUNK_SIZE);
+        const chunk = partialBuffer.substring(0, CHUNK_SIZE).replace(/"/g, "'");
         forwardToCAP(chunk);
         // Keep last OVERLAP chars as start of next chunk
         partialBuffer = partialBuffer.substring(CHUNK_SIZE - OVERLAP);
@@ -65,7 +65,7 @@ async function initElevenLabs() {
       onTranscriptCb && onTranscriptCb(text, true);
       // Send remaining buffer + forward full final
       partialBuffer = '';
-      forwardToCAP(text.substring(0, 500));
+      forwardToCAP(text.substring(0, 500).replace(/"/g, "'"));
     });
 
     connection.on('error', (err) => {

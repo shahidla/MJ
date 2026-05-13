@@ -4,9 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MJ Live — AI Witness</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,300;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,300&family=Share+Tech+Mono&display=swap');
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -14,7 +13,7 @@
     overflow: hidden;
     width: 100vw;
     height: 100vh;
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'Cormorant Garamond', serif;
     cursor: default;
   }
 
@@ -25,6 +24,234 @@
     height: 100%;
   }
 
+  /* ── Status indicator ── */
+  #ws-status {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 40;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #ff9800;
+    opacity: 0.7;
+  }
+  #ws-status.ok  { color: #4caf50; }
+  #ws-status.err { color: #f44336; }
+
+  /* ── Main layout — bottom 54% of screen ── */
+  #main-layout {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 54vh;
+    display: flex;
+    z-index: 20;
+    pointer-events: none;
+  }
+
+  /* ── Section shared styles ── */
+  .panel {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .section-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(9px, 0.9vw, 11px);
+    letter-spacing: 4px;
+    color: rgba(201,168,76,0.4);
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+    padding-bottom: 6px;
+  }
+
+  /* ── Pipeline panel — left 62% ── */
+  #pipeline-panel {
+    width: 62vw;
+    border-right: 1px solid rgba(255,255,255,0.05);
+  }
+
+  #pipeline-modes {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .mode-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 3px 0;
+    transition: all 0.4s ease;
+    opacity: 0.2;
+  }
+
+  .mode-row.done { opacity: 0.4; }
+
+  .mode-row.active {
+    opacity: 1;
+  }
+
+  .mode-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 0.85vw, 11px);
+    color: rgba(255,255,255,0.3);
+    transition: color 0.3s;
+  }
+
+  .mode-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(10px, 1vw, 13px);
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.3);
+    transition: all 0.3s;
+    white-space: nowrap;
+  }
+
+  .mode-output {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(9px, 0.9vw, 12px);
+    color: rgba(255,255,255,0.25);
+    text-align: right;
+    max-width: 34vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: all 0.5s ease;
+    opacity: 0;
+  }
+
+  /* Active mode — pops out */
+  .mode-row.active .mode-num  { color: #c9a84c; }
+  .mode-row.active .mode-name {
+    color: #c9a84c;
+    font-size: clamp(12px, 1.3vw, 17px);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(201,168,76,0.5);
+  }
+  .mode-row.active .mode-output {
+    color: rgba(255,255,255,0.7);
+    opacity: 1;
+  }
+  .mode-row.done .mode-output {
+    color: rgba(255,255,255,0.3);
+    opacity: 1;
+  }
+
+  /* Emotion bars */
+  #emotion-bar-panel {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .emotion-row { display: flex; align-items: center; gap: 8px; }
+  .emotion-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(8px, 0.85vw, 11px);
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+    width: 90px;
+    text-align: right;
+    text-transform: lowercase;
+  }
+  .emotion-bar-bg {
+    flex: 1;
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .emotion-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 1px;
+    transition: width 1.2s ease;
+  }
+
+  /* ── Chronicle panel — right 38% ── */
+  #chronicle-panel {
+    width: 38vw;
+  }
+
+  #chronicle-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .chronicle-entry {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: opacity 0.8s ease, transform 0.5s ease;
+    transform: translateY(0);
+  }
+
+  .chronicle-entry.entering {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+
+  .ce-year {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(16px, 2vw, 26px);
+    letter-spacing: 3px;
+    color: rgba(201,168,76,0.9);
+    line-height: 1;
+  }
+
+  .ce-event {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(10px, 1.1vw, 14px);
+    color: rgba(255,255,255,0.7);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ce-emotion {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(8px, 0.75vw, 10px);
+    color: rgba(201,168,76,0.5);
+    text-transform: lowercase;
+    white-space: nowrap;
+  }
+
+  /* ── Pipeline status subtitle ── */
+  #pipeline-status {
+    position: fixed;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 0.85vw, 11px);
+    letter-spacing: 2px;
+    color: rgba(201,168,76,0.5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  #pipeline-status.visible { opacity: 1; }
+
+  /* ── Title overlay (fades when playing) ── */
   #overlay {
     position: fixed;
     inset: 0;
@@ -35,340 +262,48 @@
     z-index: 10;
     pointer-events: none;
   }
-
   #title {
+    font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(48px, 10vw, 120px);
     letter-spacing: 12px;
     color: #fff;
-    opacity: 0.08;
-    text-align: center;
-    line-height: 1;
+    opacity: 0.06;
     transition: opacity 1s ease;
   }
-
-  #title.playing { opacity: 0.04; }
-
+  #title.playing { opacity: 0.02; }
   #subtitle {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
     font-size: clamp(12px, 2vw, 18px);
     letter-spacing: 6px;
     color: #c9a84c;
-    opacity: 0.4;
+    opacity: 0.3;
     margin-top: 12px;
     transition: opacity 1s ease;
   }
+  #subtitle.playing { opacity: 0.08; }
 
-  #subtitle.playing { opacity: 0.15; }
-
-  #ws-status {
-    position: fixed;
-    top: 12px;
-    right: 16px;
-    z-index: 40;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: #ff9800;
-    opacity: 0.7;
-  }
-
-  #ws-status.ok { color: #4caf50; }
-  #ws-status.err { color: #f44336; }
-
+  /* ── Transcript panel (STT live) ── */
   #transcript-panel {
     position: fixed;
-    bottom: 24px;
+    top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 40;
-    width: 70vw;
+    z-index: 25;
+    width: 60vw;
     text-align: center;
     pointer-events: none;
-    max-height: 40vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
   }
-
   #transcript-partial {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: clamp(14px, 2vw, 22px);
-    color: rgba(201,168,76,0.5);
-    letter-spacing: 3px;
-    min-height: 1.5em;
-    transition: opacity 0.3s ease;
-  }
-
-  #transcript-history {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 6px;
-  }
-
-  .transcript-line {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(14px, 2.2vw, 28px);
-    letter-spacing: 6px;
-    color: rgba(255,255,255,0.85);
-    transition: opacity 0.5s ease;
-  }
-
-  .transcript-line.old {
-    font-size: clamp(11px, 1.4vw, 18px);
-    color: rgba(255,255,255,0.35);
-  }
-
-  /* ── Bottom panels ────────────────────────────────────────────────── */
-  #bottom-panels {
-    position: fixed;
-    bottom: 80px;
-    left: 0;
-    right: 0;
-    z-index: 40;
-    display: flex;
-    gap: 0;
-    pointer-events: none;
-    height: 38vh;
-  }
-
-  /* Left — cognitive mode indicator */
-  #cognitive-panel {
-    width: 28vw;
-    padding: 0 2vw;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-
-  #cognitive-label {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(10px, 1.1vw, 13px);
-    letter-spacing: 3px;
-    color: rgba(201,168,76,0.5);
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  .cognitive-mode {
-    font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(11px, 1.3vw, 16px);
-    letter-spacing: 4px;
-    color: rgba(255,255,255,0.2);
-    transition: color 0.4s ease, opacity 0.4s ease;
-    padding: 2px 0;
-  }
-
-  .cognitive-mode.active {
-    color: rgba(201,168,76,0.9);
-  }
-
-  .cognitive-mode.done {
-    color: rgba(255,255,255,0.45);
-  }
-
-  #emotion-bar-panel {
-    margin-top: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .emotion-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .emotion-label {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(9px, 1vw, 12px);
+    color: rgba(201,168,76,0.35);
     letter-spacing: 2px;
-    color: rgba(255,255,255,0.35);
-    width: 80px;
-    text-align: right;
-    text-transform: lowercase;
-  }
-
-  .emotion-bar-bg {
-    flex: 1;
-    height: 2px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 1px;
-    overflow: hidden;
-  }
-
-  .emotion-bar-fill {
-    height: 100%;
-    width: 0%;
-    border-radius: 1px;
-    transition: width 1.2s ease;
-  }
-
-  /* Centre — year reveal */
-  #year-panel {
-    width: 44vw;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    padding-bottom: 12px;
-  }
-
-  #year-reveal {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(60px, 10vw, 140px);
-    letter-spacing: 16px;
-    color: rgba(255,255,255,0.0);
-    line-height: 1;
-    transition: color 1.5s ease, transform 1.2s cubic-bezier(0.16,1,0.3,1);
-    transform: translateY(20px);
-    text-shadow: 0 0 40px rgba(201,168,76,0);
-  }
-
-  #year-reveal.visible {
-    color: rgba(255,255,255,0.92);
-    transform: translateY(0);
-    text-shadow: 0 0 40px rgba(201,168,76,0.3);
-  }
-
-  #year-event {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(12px, 1.6vw, 18px);
-    letter-spacing: 2px;
-    color: rgba(201,168,76,0.7);
-    text-align: center;
-    margin-top: 6px;
-    max-width: 36vw;
     min-height: 1.4em;
-    transition: opacity 0.8s ease;
   }
 
-  /* Right — chronicle accumulates */
-  #chronicle-panel {
-    width: 28vw;
-    padding: 0 2vw;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    gap: 0;
-    overflow: hidden;
-  }
-
-  #chronicle-label {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(10px, 1.1vw, 13px);
-    letter-spacing: 3px;
-    color: rgba(201,168,76,0.5);
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-
-  #chronicle-entries {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    overflow: hidden;
-    max-height: 32vh;
-  }
-
-  .chronicle-entry {
-    opacity: 0;
-    transform: translateX(10px);
-    transition: opacity 0.8s ease, transform 0.8s ease;
-  }
-
-  .chronicle-entry.visible {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .chronicle-entry.faded {
-    opacity: 0.3;
-  }
-
-  .ce-year {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(13px, 1.6vw, 20px);
-    letter-spacing: 5px;
-    color: rgba(201,168,76,0.8);
-    line-height: 1;
-  }
-
-  .ce-event {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(10px, 1.1vw, 13px);
-    letter-spacing: 1px;
-    color: rgba(255,255,255,0.6);
-    margin-top: 2px;
-  }
-
-  .ce-insight {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(9px, 0.95vw, 11px);
-    letter-spacing: 0.5px;
-    color: rgba(201,168,76,0.4);
-    margin-top: 2px;
-  }
-
-  .ce-heard {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(8px, 0.8vw, 10px);
-    color: rgba(255,255,255,0.25);
-    margin-top: 4px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    padding-top: 3px;
-  }
-
-  .ce-heard span.label {
-    color: rgba(255,255,255,0.15);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 8px;
-  }
-
-  .ce-rag {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(8px, 0.75vw, 9px);
-    color: rgba(100,180,255,0.35);
-    margin-top: 2px;
-  }
-
-  .ce-rag span.label {
-    color: rgba(100,180,255,0.2);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 8px;
-  }
-
-  /* Pipeline status subtitle */
-  #pipeline-status {
-    position: fixed;
-    bottom: 88px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 45;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(9px, 0.9vw, 12px);
-    letter-spacing: 2px;
-    color: rgba(201,168,76,0.6);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    text-transform: lowercase;
-    white-space: nowrap;
-    pointer-events: none;
-  }
-  #pipeline-status.visible { opacity: 1; }
-
-  /* Between-act reflection */
+  /* ── Between-act reflection ── */
   #reflection-panel {
     position: fixed;
     top: 50%;
@@ -381,9 +316,7 @@
     opacity: 0;
     transition: opacity 1.5s ease;
   }
-
   #reflection-panel.visible { opacity: 1; }
-
   #reflection-text {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
@@ -393,7 +326,7 @@
     line-height: 1.6;
   }
 
-  /* Finale */
+  /* ── Finale ── */
   #finale-panel {
     position: fixed;
     inset: 0;
@@ -407,12 +340,15 @@
     opacity: 0;
     transition: opacity 2s ease, background 2s ease;
   }
-
-  #finale-panel.visible {
-    opacity: 1;
-    background: rgba(0,0,0,0.85);
+  #finale-panel.visible { opacity: 1; background: rgba(0,0,0,0.88); }
+  #finale-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(9px, 0.9vw, 11px);
+    letter-spacing: 4px;
+    color: rgba(201,168,76,0.4);
+    text-transform: uppercase;
+    margin-bottom: 24px;
   }
-
   #finale-text {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
@@ -424,7 +360,6 @@
     max-width: 65vw;
     white-space: pre-line;
   }
-
   #finale-closing {
     font-family: 'Bebas Neue', sans-serif;
     font-size: clamp(28px, 4vw, 56px);
@@ -434,9 +369,9 @@
     opacity: 0;
     transition: opacity 2s ease;
   }
-
   #finale-closing.visible { opacity: 1; }
 
+  /* ── Progress bar (reserved for map) ── */
   #progress-bar {
     position: fixed;
     bottom: 0;
@@ -473,41 +408,68 @@
 </div>
 
 <div id="ws-status">connecting...</div>
-<div id="eq-debug" style="position:fixed;top:28px;right:16px;z-index:40;font-size:11px;letter-spacing:2px;color:#c9a84c;opacity:0.7;">EQ: 0 | max: 0</div>
 
-<div id="bottom-panels">
+<div id="transcript-panel">
+  <div id="transcript-partial"></div>
+</div>
 
-  <!-- Left: Cognitive mode indicator -->
-  <div id="cognitive-panel">
-    <div id="cognitive-label">AI Cognitive Pipeline</div>
-    <div class="cognitive-mode" id="mode-1">01 — PERCEPTION</div>
-    <div class="cognitive-mode" id="mode-2">02 — CLASSIFICATION</div>
-    <div class="cognitive-mode" id="mode-3">03 — RAG RETRIEVAL</div>
-    <div class="cognitive-mode" id="mode-4">04 — TEMPORAL MEMORY</div>
-    <div class="cognitive-mode" id="mode-5">05 — RELATIONAL REASONING</div>
-    <div class="cognitive-mode" id="mode-6">06 — REFLECTIVE EVALUATION</div>
-    <div class="cognitive-mode" id="mode-7">07 — PATTERN SYNTHESIS</div>
-    <div class="cognitive-mode" id="mode-8">08 — GENERATIVE EXPRESSION</div>
+<!-- Main layout -->
+<div id="main-layout">
+
+  <!-- Left: AI Cognitive Pipeline -->
+  <div class="panel" id="pipeline-panel">
+    <div class="section-heading">AI COGNITIVE PIPELINE</div>
+    <div id="pipeline-modes">
+      <div class="mode-row" id="mrow-1">
+        <span class="mode-num">01</span>
+        <span class="mode-name">PERCEPTION</span>
+        <span class="mode-output" id="mout-1">—</span>
+      </div>
+      <div class="mode-row" id="mrow-2">
+        <span class="mode-num">02</span>
+        <span class="mode-name">CLASSIFICATION</span>
+        <span class="mode-output" id="mout-2">—</span>
+      </div>
+      <div class="mode-row" id="mrow-3">
+        <span class="mode-num">03</span>
+        <span class="mode-name">RAG RETRIEVAL</span>
+        <span class="mode-output" id="mout-3">—</span>
+      </div>
+      <div class="mode-row" id="mrow-4">
+        <span class="mode-num">04</span>
+        <span class="mode-name">TEMPORAL MEMORY</span>
+        <span class="mode-output" id="mout-4">—</span>
+      </div>
+      <div class="mode-row" id="mrow-5">
+        <span class="mode-num">05</span>
+        <span class="mode-name">RELATIONAL REASONING</span>
+        <span class="mode-output" id="mout-5">—</span>
+      </div>
+      <div class="mode-row" id="mrow-6">
+        <span class="mode-num">06</span>
+        <span class="mode-name">REFLECTIVE EVALUATION</span>
+        <span class="mode-output" id="mout-6">—</span>
+      </div>
+      <div class="mode-row" id="mrow-7">
+        <span class="mode-num">07</span>
+        <span class="mode-name">PATTERN SYNTHESIS</span>
+        <span class="mode-output" id="mout-7">—</span>
+      </div>
+      <div class="mode-row" id="mrow-8">
+        <span class="mode-num">08</span>
+        <span class="mode-name">GENERATIVE EXPRESSION</span>
+        <span class="mode-output" id="mout-8">—</span>
+      </div>
+    </div>
     <div id="emotion-bar-panel"></div>
   </div>
 
-  <!-- Centre: Year reveal -->
-  <div id="year-panel">
-    <div id="year-reveal"></div>
-    <div id="year-event"></div>
-  </div>
-
-  <!-- Right: Chronicle accumulates -->
-  <div id="chronicle-panel">
-    <div id="chronicle-label">The Chronicle</div>
+  <!-- Right: The Chronicle -->
+  <div class="panel" id="chronicle-panel">
+    <div class="section-heading">THE CHRONICLE</div>
     <div id="chronicle-entries"></div>
   </div>
 
-</div>
-
-<div id="transcript-panel">
-  <div id="transcript-history"></div>
-  <div id="transcript-partial"></div>
 </div>
 
 <div id="pipeline-status"></div>
@@ -517,6 +479,7 @@
 </div>
 
 <div id="finale-panel">
+  <div id="finale-label">08 — GENERATIVE EXPRESSION — AI CLOSING REFLECTION</div>
   <div id="finale-text"></div>
   <div id="finale-closing">Did we change?</div>
 </div>
@@ -527,170 +490,94 @@
 <script>
 const BRIDGE_WS = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 const FREQ_BINS = 128;
-let eqFrames = 0;
 
-// Transcript state — updated by onmessage, rendered by RAF loop
 let pendingPartial = '';
 let transcriptDirty = false;
 
 const canvas = document.getElementById('c');
 const c = canvas.getContext('2d');
-
 let freqData = new Uint8Array(FREQ_BINS);
 let timeData = new Uint8Array(FREQ_BINS);
 let externalData = false;
 let lastFrameTs = 0;
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
 
 document.addEventListener('mousemove', e => {
   const s = document.getElementById('spotlight');
   s.style.left = e.clientX + 'px';
-  s.style.top = e.clientY + 'px';
+  s.style.top  = e.clientY + 'px';
 });
 
-// --- EQ + transcript handlers (shared) ---
 const wsStatus = document.getElementById('ws-status');
 
+// ── EQ handler ──
 function handleEqPayload(payload) {
   const bars = payload.bars;
   if (!bars) return;
   const maxBar = Math.max(...bars);
-  document.getElementById('eq-debug').textContent = `EQ: ${++eqFrames} | max: ${maxBar}`;
   const step = FREQ_BINS / bars.length;
-  for (let i = 0; i < FREQ_BINS; i++) {
-    freqData[i] = bars[Math.floor(i / step)] || 0;
-  }
+  for (let i = 0; i < FREQ_BINS; i++) freqData[i] = bars[Math.floor(i / step)] || 0;
   const avg = bars.reduce((a, b) => a + b, 0) / bars.length;
-  for (let i = 0; i < FREQ_BINS; i++) {
-    timeData[i] = 128 + Math.round((Math.random() - 0.5) * avg * 0.4);
-  }
+  for (let i = 0; i < FREQ_BINS; i++) timeData[i] = 128 + Math.round((Math.random() - 0.5) * avg * 0.4);
   externalData = true;
   lastFrameTs = Date.now();
 }
 
-// Dynamic emotion tracking — whatever Claude returns, we show it
+// ── Emotion bars (dynamic) ──
 const emotionCounts = {};
-const emotionColours = [
-  '#c9a84c','#4a7c9e','#c0392b','#27ae60','#8e44ad','#e67e22','#1abc9c','#e74c3c'
-];
+const emotionColours = ['#c9a84c','#4a7c9e','#c0392b','#27ae60','#8e44ad','#e67e22','#1abc9c','#e74c3c'];
 
 function updateEmotionBars(emotionText) {
   if (!emotionText) return;
-  // Claude often returns "grief, despair" — take first word as primary
   const primary = emotionText.split(/[,\/]/)[0].trim().toLowerCase();
   if (!primary) return;
-
   emotionCounts[primary] = (emotionCounts[primary] || 0) + 1;
-
   const panel = document.getElementById('emotion-bar-panel');
   const total = Object.values(emotionCounts).reduce((a, b) => a + b, 0);
-  const sorted = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-
+  const sorted = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   panel.innerHTML = sorted.map(([emotion, count], i) => {
     const pct = Math.round((count / total) * 100);
     const colour = emotionColours[i % emotionColours.length];
     return `<div class="emotion-row">
       <div class="emotion-label">${emotion}</div>
-      <div class="emotion-bar-bg">
-        <div class="emotion-bar-fill" style="width:${pct}%;background:${colour}"></div>
-      </div>
+      <div class="emotion-bar-bg"><div class="emotion-bar-fill" style="width:${pct}%;background:${colour}"></div></div>
     </div>`;
   }).join('');
 }
 
-function activateMode(id, durationMs) {
-  const el = document.getElementById(id);
-  el.classList.remove('done');
-  el.classList.add('active');
-  if (durationMs) setTimeout(() => el.classList.replace('active', 'done'), durationMs);
-}
-
-function animateCognitiveModes(callback) {
-  const modes = ['mode-1','mode-2','mode-3','mode-4','mode-5'];
-  modes.forEach(id => document.getElementById(id).classList.remove('active','done'));
-  let i = 0;
-  function next() {
-    if (i > 0) document.getElementById(modes[i-1]).classList.replace('active','done');
-    if (i < modes.length) {
-      document.getElementById(modes[i]).classList.add('active');
-      i++;
-      setTimeout(next, 380);
+// ── Pipeline mode management ──
+function setModeActive(num) {
+  for (let i = 1; i <= 8; i++) {
+    const row = document.getElementById(`mrow-${i}`);
+    if (!row) continue;
+    if (i < num) {
+      row.classList.remove('active');
+      row.classList.add('done');
+    } else if (i === num) {
+      row.classList.add('active');
+      row.classList.remove('done');
     } else {
-      setTimeout(callback, 200);
+      row.classList.remove('active', 'done');
     }
   }
-  next();
 }
 
-function revealYear(year, event) {
-  const yearEl = document.getElementById('year-reveal');
-  const eventEl = document.getElementById('year-event');
-  yearEl.classList.remove('visible');
-  eventEl.style.opacity = '0';
-  setTimeout(() => {
-    yearEl.textContent = year || '';
-    eventEl.textContent = event || '';
-    if (year) {
-      yearEl.classList.add('visible');
-      setTimeout(() => { eventEl.style.opacity = '1'; }, 400);
-    }
-  }, 300);
+function setModeOutput(num, text) {
+  const el = document.getElementById(`mout-${num}`);
+  if (el) el.textContent = text || '—';
 }
 
-function addChronicleEntry(payload) {
-  const container = document.getElementById('chronicle-entries');
-  // Fade all existing entries
-  container.querySelectorAll('.chronicle-entry.visible')
-    .forEach(el => el.classList.add('faded'));
-
-  const entry = document.createElement('div');
-  entry.className = 'chronicle-entry';
-  entry.innerHTML = `
-    <div class="ce-year">${payload.year || '—'}</div>
-    <div class="ce-event">${payload.event || ''}</div>
-    <div class="ce-insight">${payload.insight || ''}</div>
-    ${payload.transcript ? `<div class="ce-heard"><span class="label">heard · </span>${payload.transcript}</div>` : ''}
-    ${payload.ragContext ? `<div class="ce-rag"><span class="label">kb · </span>${payload.ragContext.substring(0, 120)}${payload.ragContext.length > 120 ? '…' : ''}</div>` : ''}
-  `;
-  container.appendChild(entry);
-
-  // Keep last 3 entries
-  const entries = container.querySelectorAll('.chronicle-entry');
-  if (entries.length > 3) entries[0].remove();
-
-  // Animate in
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => entry.classList.add('visible'));
-  });
+function resetModes() {
+  for (let i = 1; i <= 8; i++) {
+    const row = document.getElementById(`mrow-${i}`);
+    if (row) row.classList.remove('active', 'done');
+  }
 }
 
-function handleReflection(payload) {
-  activateMode('mode-6', 6000);
-  const panel = document.getElementById('reflection-panel');
-  document.getElementById('reflection-text').textContent = payload.sentence || '';
-  panel.classList.add('visible');
-  setTimeout(() => panel.classList.remove('visible'), 6000);
-}
-
-function handleFinale(payload) {
-  activateMode('mode-7', 4000);
-  setTimeout(() => activateMode('mode-8'), 4000);
-  const reflection = payload.reflection || '';
-  const lines = reflection.replace(/Did we change\??\s*$/i, '').trim();
-  document.getElementById('finale-text').textContent = lines;
-  const panel = document.getElementById('finale-panel');
-  panel.classList.add('visible');
-  setTimeout(() => {
-    document.getElementById('finale-closing').classList.add('visible');
-  }, 4000);
-}
-
+// ── Pipeline status subtitle ──
 let statusTimer = null;
 function showStatus(text) {
   const el = document.getElementById('pipeline-status');
@@ -700,55 +587,113 @@ function showStatus(text) {
   statusTimer = setTimeout(() => el.classList.remove('visible'), 2500);
 }
 
+// ── Handle pipeline/status events ──
 function handlePipelineStatus(payload) {
   const { mode, label } = payload;
-  if (mode === 1) {
-    // Reset all modes at start of new pipeline run
-    ['mode-1','mode-2','mode-3','mode-4','mode-5','mode-6','mode-7','mode-8']
-      .forEach(id => document.getElementById(id).classList.remove('active','done'));
-  } else if (mode > 1 && mode <= 5) {
-    document.getElementById(`mode-${mode - 1}`)?.classList.replace('active', 'done');
-  }
-  if (mode >= 1 && mode <= 8) activateMode(`mode-${mode}`, 2500);
+  if (mode === 1) resetModes();
+  setModeActive(mode);
   showStatus(label);
 }
 
+// ── Handle chronicle/event — fills mode outputs ──
 function handleChronicleEvent(payload) {
-  // Modes already lit by pipeline/status events — just reveal results
-  document.getElementById('mode-5')?.classList.replace('active', 'done');
-  revealYear(payload.year, payload.event);
+  // Fill mode outputs with actual data
+  setModeOutput(1, payload.transcript);
+  setModeOutput(2, `${payload.emotion || '—'} · ${payload.year || '—'}`);
+  setModeOutput(3, (payload.ragContext || '').substring(0, 80) + (payload.ragContext?.length > 80 ? '…' : ''));
+  setModeOutput(4, Object.keys(emotionCounts).join(' → ') || '—');
+  setModeOutput(5, payload.insight);
+  setModeActive(5);
+  setTimeout(() => {
+    const row5 = document.getElementById('mrow-5');
+    if (row5) { row5.classList.remove('active'); row5.classList.add('done'); }
+  }, 2000);
+
   addChronicleEntry(payload);
   updateEmotionBars(payload.emotion);
+
+  document.getElementById('title').classList.add('playing');
+  document.getElementById('subtitle').classList.add('playing');
 }
 
+// ── Chronicle — newest on top, auto-scroll, fade old ──
+function addChronicleEntry(payload) {
+  const container = document.getElementById('chronicle-entries');
+  const entry = document.createElement('div');
+  entry.className = 'chronicle-entry entering';
+  entry.innerHTML = `
+    <span class="ce-year">${payload.year || '—'}</span>
+    <span class="ce-event">${payload.event || ''}</span>
+    <span class="ce-emotion">${(payload.emotion || '').split(',')[0].trim()}</span>
+  `;
+
+  // Insert at top
+  container.insertBefore(entry, container.firstChild);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => entry.classList.remove('entering'));
+  });
+
+  // Fade older entries progressively
+  const entries = container.querySelectorAll('.chronicle-entry');
+  entries.forEach((el, i) => {
+    el.style.opacity = Math.max(0.08, 1 - i * 0.18);
+    el.style.fontSize = i === 0 ? '' : `${Math.max(80, 100 - i * 5)}%`;
+  });
+
+  // Remove very old entries
+  if (entries.length > 12) entries[entries.length - 1].remove();
+}
+
+// ── Reflection (mode 06) ──
+function handleReflection(payload) {
+  setModeActive(6);
+  setModeOutput(6, payload.sentence);
+  const panel = document.getElementById('reflection-panel');
+  document.getElementById('reflection-text').textContent = payload.sentence || '';
+  panel.classList.add('visible');
+  setTimeout(() => {
+    panel.classList.remove('visible');
+    const row = document.getElementById('mrow-6');
+    if (row) { row.classList.remove('active'); row.classList.add('done'); }
+  }, 6000);
+}
+
+// ── Finale (modes 07+08) ──
+function handleFinale(payload) {
+  setModeActive(7);
+  setModeOutput(7, 'synthesising all four acts');
+  setTimeout(() => {
+    setModeActive(8);
+    setModeOutput(8, 'writing closing reflection');
+  }, 4000);
+
+  const reflection = payload.reflection || '';
+  const lines = reflection.replace(/Did we change\??\s*$/i, '').trim();
+  document.getElementById('finale-text').textContent = lines;
+  const panel = document.getElementById('finale-panel');
+  panel.classList.add('visible');
+  setTimeout(() => {
+    document.getElementById('finale-closing').classList.add('visible');
+    setModeOutput(8, '"Did we change?"');
+  }, 4000);
+}
+
+// ── Transcript (STT live partial) ──
 function handleTranscript(text, isFinal) {
   if (isFinal) {
     pendingPartial = '';
-    const history = document.getElementById('transcript-history');
-    const line = document.createElement('div');
-    line.className = 'transcript-line';
-    line.textContent = text;
-    history.appendChild(line);
-    const lines = history.querySelectorAll('.transcript-line');
-    if (lines.length > 5) lines[0].remove();
-    history.querySelectorAll('.transcript-line').forEach((el, i, arr) => {
-      el.classList.toggle('old', i < arr.length - 1);
-    });
   } else {
     pendingPartial = text;
   }
   transcriptDirty = true;
 }
 
-// --- Bridge WebSocket (local transport or transcript fallback) ---
+// ── Bridge WebSocket (local transport) ──
 function connectBridge() {
   const ws = new WebSocket(BRIDGE_WS);
-  ws.onopen = () => {
-    wsStatus.textContent = 'live';
-    wsStatus.className = 'ok';
-    document.getElementById('title').classList.add('playing');
-    document.getElementById('subtitle').classList.add('playing');
-  };
+  ws.onopen = () => { wsStatus.textContent = 'live'; wsStatus.className = 'ok'; };
   ws.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
@@ -766,7 +711,7 @@ function connectBridge() {
   ws.onerror = () => { wsStatus.textContent = 'error'; wsStatus.className = 'err'; };
 }
 
-// --- Solace direct (transport=solace) ---
+// ── Solace direct ──
 function connectSolace(cfg) {
   solace.SolclientFactory.init({ profile: solace.SolclientFactoryProfiles.version10 });
   const session = solace.SolclientFactory.createSession({
@@ -775,90 +720,47 @@ function connectSolace(cfg) {
   session.on(solace.SessionEventCode.UP_NOTICE, () => {
     wsStatus.textContent = 'solace live';
     wsStatus.className = 'ok';
-    document.getElementById('title').classList.add('playing');
-    document.getElementById('subtitle').classList.add('playing');
-    session.subscribe(
-      solace.SolclientFactory.createTopicDestination('audio/equalizer'),
-      true, 'audio/equalizer', 1000
-    );
-    session.subscribe(
-      solace.SolclientFactory.createTopicDestination('chronicle/event'),
-      true, 'chronicle/event', 1000
-    );
-    session.subscribe(
-      solace.SolclientFactory.createTopicDestination('chronicle/reflection'),
-      true, 'chronicle/reflection', 1000
-    );
-    session.subscribe(
-      solace.SolclientFactory.createTopicDestination('chronicle/finale'),
-      true, 'chronicle/finale', 1000
-    );
-    session.subscribe(
-      solace.SolclientFactory.createTopicDestination('pipeline/status'),
-      true, 'pipeline/status', 1000
-    );
+    const topics = ['audio/equalizer','chronicle/event','chronicle/reflection','chronicle/finale','pipeline/status'];
+    topics.forEach((t, i) => session.subscribe(solace.SolclientFactory.createTopicDestination(t), true, t, 1000 + i));
   });
   session.on(solace.SessionEventCode.MESSAGE, (msg) => {
     try {
       const topic = msg.getDestination().getName();
-      console.log('Solace message received, topic:', topic);
-      // Bridge uses SDT container; CPI REST API uses binary attachment
       let raw;
-      if (msg.getSdtContainer()) {
-        raw = msg.getSdtContainer().getValue();
-      } else if (msg.getBinaryAttachment()) {
+      if (msg.getSdtContainer()) raw = msg.getSdtContainer().getValue();
+      else if (msg.getBinaryAttachment()) {
         const bin = msg.getBinaryAttachment();
         raw = typeof bin === 'string' ? bin : new TextDecoder().decode(bin);
       }
-      console.log('Solace raw message:', raw);
       const payload = JSON.parse(raw);
-      if (topic === 'audio/equalizer') {
-        handleEqPayload(payload);
-      } else if (topic === 'chronicle/event') {
-        handleChronicleEvent(payload);
-      } else if (topic === 'chronicle/reflection') {
-        handleReflection(payload);
-      } else if (topic === 'chronicle/finale') {
-        handleFinale(payload);
-      } else if (topic === 'pipeline/status') {
-        handlePipelineStatus(payload);
-      }
+      if      (topic === 'audio/equalizer')        handleEqPayload(payload);
+      else if (topic === 'chronicle/event')         handleChronicleEvent(payload);
+      else if (topic === 'chronicle/reflection')    handleReflection(payload);
+      else if (topic === 'chronicle/finale')        handleFinale(payload);
+      else if (topic === 'pipeline/status')         handlePipelineStatus(payload);
     } catch (e) { console.error('Solace message error:', e); }
   });
   session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (e) => {
-    wsStatus.textContent = 'solace error';
-    wsStatus.className = 'err';
-    console.error('Solace consumer error:', e.infoStr);
+    wsStatus.textContent = 'solace error'; wsStatus.className = 'err';
   });
-
-  session.on(solace.SessionEventCode.SUBSCRIPTION_OK, (e) => {
-    console.log('Solace subscription OK:', e.correlationKey);
-  });
-
-  session.on(solace.SessionEventCode.SUBSCRIPTION_ERROR, (e) => {
-    console.error('Solace subscription ERROR:', e.correlationKey, e.infoStr);
+  session.on(solace.SessionEventCode.DISCONNECTED, () => {
+    wsStatus.textContent = 'reconnecting...'; wsStatus.className = 'err';
+    setTimeout(() => connectSolace(cfg), 5000);
   });
   session.connect();
 }
 
-// --- Bootstrap ---
+// ── Bootstrap ──
 async function bootstrap() {
   try {
     const cfg = await fetch('/solace-config').then(r => r.json());
-    if (cfg.transport === 'solace') {
-      connectSolace(cfg);
-    } else {
-      connectBridge();
-    }
-  } catch (e) {
-    connectBridge();
-  }
+    if (cfg.transport === 'solace') connectSolace(cfg);
+    else connectBridge();
+  } catch (e) { connectBridge(); }
 }
-
 bootstrap();
 
 // ============ VISUALIZER ============
-
 let hue = 0;
 let prevEnergy = 0;
 let beatPulse = 0;
@@ -885,15 +787,12 @@ function getEnergy(data, lo, hi) {
 function draw() {
   requestAnimationFrame(draw);
 
-  // Flush transcript updates every frame — renders regardless of tab focus
   if (transcriptDirty) {
     document.getElementById('transcript-partial').textContent = pendingPartial;
     transcriptDirty = false;
   }
 
   const w = canvas.width, h = canvas.height;
-
-  // If no external data for >1s, treat as idle
   const idle = !externalData || (Date.now() - lastFrameTs > 1000);
 
   if (idle) {
@@ -916,7 +815,6 @@ function draw() {
   c.fillStyle = `rgba(0,0,0,${0.25 + bass * 0.1})`;
   c.fillRect(0, 0, w, h);
 
-  // ---- FLOOR REFLECTION ----
   const floorY = h * 0.72;
   const barCount = FREQ_BINS;
   const barW = w / barCount;
@@ -928,14 +826,12 @@ function draw() {
     const hueShift = (i / barCount) * 60 + hue;
     const sat = 60 + val * 40;
     const lit = 30 + val * 40;
-
     const grad = c.createLinearGradient(x, floorY, x, floorY - barH);
     grad.addColorStop(0, `hsla(${hueShift}, ${sat}%, ${lit}%, 0.9)`);
     grad.addColorStop(0.6, `hsla(${hueShift + 20}, ${sat}%, ${lit + 20}%, 0.6)`);
     grad.addColorStop(1, `hsla(${hueShift + 40}, 100%, 85%, 0.0)`);
     c.fillStyle = grad;
     c.fillRect(x, floorY - barH, barW - 1, barH);
-
     const reflGrad = c.createLinearGradient(x, floorY, x, floorY + barH * 0.4);
     reflGrad.addColorStop(0, `hsla(${hueShift}, ${sat}%, ${lit}%, 0.3)`);
     reflGrad.addColorStop(1, `hsla(${hueShift}, ${sat}%, ${lit}%, 0)`);
@@ -945,12 +841,8 @@ function draw() {
 
   c.strokeStyle = `rgba(201,168,76,${0.1 + bass * 0.3})`;
   c.lineWidth = 1;
-  c.beginPath();
-  c.moveTo(0, floorY);
-  c.lineTo(w, floorY);
-  c.stroke();
+  c.beginPath(); c.moveTo(0, floorY); c.lineTo(w, floorY); c.stroke();
 
-  // ---- WAVEFORM ----
   c.beginPath();
   c.lineWidth = 1.5;
   c.strokeStyle = `rgba(255,255,255,${0.08 + mid * 0.15})`;
@@ -961,12 +853,10 @@ function draw() {
   }
   c.stroke();
 
-  // ---- SPOTLIGHT BEAMS ----
   for (let b = 0; b < 6; b++) {
     const angle = (b / 6) * Math.PI + Math.sin(Date.now() * 0.0003 + b) * 0.3;
     const intensity = (freqData[b * 15] / 255) * 0.12 + 0.02;
     const bx = w * 0.1 + (b / 6) * w * 0.8;
-
     c.save();
     c.translate(bx, 0);
     c.rotate(angle - Math.PI / 2);
@@ -984,7 +874,6 @@ function draw() {
     c.restore();
   }
 
-  // ---- BEAT PULSE RING ----
   if (beatPulse > 0.1) {
     c.beginPath();
     c.arc(w / 2, floorY, beatPulse * w * 0.4, 0, Math.PI * 2);
@@ -993,14 +882,11 @@ function draw() {
     c.stroke();
   }
 
-  // ---- PARTICLES ----
   for (const p of particles) {
     p.x += p.vx * (1 + energy * 3);
     p.y += p.vy * (1 + energy * 3);
-    if (p.x < 0) p.x = w;
-    if (p.x > w) p.x = 0;
-    if (p.y < 0) p.y = h;
-    if (p.y > h) p.y = 0;
+    if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+    if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
     const brightness = 40 + energy * 60;
     c.beginPath();
     c.arc(p.x, p.y, p.size * (1 + bass * 2), 0, Math.PI * 2);
@@ -1008,7 +894,6 @@ function draw() {
     c.fill();
   }
 
-  // ---- CENTER GLOW ----
   const glowR = 80 + energy * 200 + beatPulse * 150;
   const glow = c.createRadialGradient(w/2, floorY, 0, w/2, floorY, glowR);
   glow.addColorStop(0, `rgba(201,168,76,${0.08 + energy * 0.15})`);
@@ -1022,12 +907,9 @@ function draw() {
 function drawIdleParticles(w, h) {
   hue = (hue + 0.05) % 360;
   for (const p of particles) {
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.x < 0) p.x = w;
-    if (p.x > w) p.x = 0;
-    if (p.y < 0) p.y = h;
-    if (p.y > h) p.y = 0;
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+    if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
     c.beginPath();
     c.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     c.fillStyle = `hsla(${p.hue + hue},60%,50%,0.15)`;
