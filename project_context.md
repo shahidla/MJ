@@ -784,8 +784,12 @@ Complete pass through all project files. Grouped by file and severity.
 
 ### Priority 2 — Architecture correctness
 
-**4. CPI iFlow update — remove Claude, POST raw transcript to CAP**
-- Current state: CPI iFlow calls Claude Haiku + Groovy JSON extraction + Solace REST publish (bypasses CAP entirely)
+**4. CPI iFlow update — COMPLETE ✅**
+- CPI stripped to: HTTPS Sender → Content Modifier → HTTP Receiver → End
+- Content Modifier wraps body as `{"transcript":"${in.body}"}` + sets Content-Type header
+- HTTP Receiver POSTs to CAP with no auth. Claude/Groovy/Solace all removed from CPI.
+- Tested: CPI → CAP → vector RAG → Claude → Solace — full pipeline working
+- Old state: CPI iFlow calls Claude Haiku + Groovy JSON extraction + Solace REST publish (bypasses CAP entirely)
 - What to do: strip the iFlow to just: HTTPS Sender → Content Modifier (wrap body as JSON) → Request Reply → CAP `/odata/v4/mj/receiveTranscript`
 - CAP owns all intelligence. CPI is the enterprise relay, not the brain.
 - The `"act"` field was already removed from CPI's Claude output schema — but the entire Claude call in CPI needs to go. This is the full resolution of the "we don't need act in CPI Claude" decision: the answer is we don't need Claude in CPI at all.
