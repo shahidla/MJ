@@ -355,7 +355,7 @@ That record is the difference between a developer who built something and an arc
 
 ---
 
-## Current Build State (last updated: 2026-05-12)
+## Current Build State (last updated: 2026-05-13)
 
 ### Phase 1 — COMPLETE
 ### Phase 2a — COMPLETE
@@ -918,6 +918,64 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 | Demo video | ✅ | ❌ | Needs 4-song audio first |
 
 **Two hard gaps:** vector embeddings and the 4-song audio file. Everything else is built or a cleanup task.
+
+---
+
+### Session summary (2026-05-13) — full day
+
+**Architecture finalised:**
+- CPI fully removed from active path — Path 2 confirmed: Bridge → ElevenLabs → CAP direct
+- No AssemblyAI, no CPI in the live pipeline
+- Between-act reflections removed — one finale reflection only, at audio end
+- Finale auto-triggers: producer sends `audio_ended` → bridge waits for STT queue drain → CAP `generateFinale`
+
+**STT batching — new approach:**
+- Partials: collected in batch, only sent to CAP when 5+ genuinely new words added per chunk AND batch reaches 5 entries
+- Finals (committed_transcript): ALWAYS go to CAP immediately — guaranteed chronicle entry
+- Inject test tool: `POST /inject {text}` on bridge → shows in PERCEPTION + full pipeline (no audio needed)
+- Inject UI added to `/log` page — paste any sentence, watch pipeline react
+
+**Consumer UI changes:**
+- Mode 01 PERCEPTION: delta display (shows only NEW words since last partial, fade-replace animation)
+- Fixed layout: `min-height: 0` on mode rows — lyrics no longer push other rows down
+- Mode 01 colours: white text at 22px, always bright, gold label
+- Grid: `minmax(100px, 240px)` for name column — lyrics start immediately, no dead space
+- Scrolling removed from PERCEPTION
+- Chronicle deduplication: `seenEvents` set prevents same event rendering twice (Solace + WS double delivery)
+- Bridge WebSocket now forwards ALL events to consumers: `chronicle/event`, `chronicle/finale`, `pipeline/status`
+- This means consumer works without Solace — bridge WS carries everything in local mode
+
+**Schema:**
+- `figure` column added to ChronicleEvents — primary historical figure referenced (e.g. "Neil Armstrong")
+- Claude prompt updated to extract `figure` field explicitly
+- `figure` persisted to DB and forwarded in Solace payload
+- Re-deployed via `npx cds deploy --to sqlite`
+
+**SQLite local dev:**
+- Switched from `:memory:` (views missing) to file-based `db.sqlite`
+- `npx cds deploy --to sqlite` required after deleting `db.sqlite` — creates full schema + views + seeds CSV data
+- RAG uses CDS SELECT API (not raw SQL) — works on both SQLite and HANA
+- `col()` helper handles HANA uppercase vs SQLite lowercase column names
+
+**Finale fix:**
+- `generateFinale` handler wrapped in try/catch — errors now return proper JSON instead of 500
+- Bridge: detects `json.error` vs `json.value` — logs real error message
+- Bridge emits `chronicle/finale` on local bus after getting CAP response — consumer receives via WS even without Solace
+
+**CF deployment:**
+- CF CLI installed: `C:\Users\shahi\Downloads\cf.exe` — added to user PATH permanently
+- CF credentials stored in `.env`: `CF_USER`, `CF_PASSWORD`, `CF_API`
+- Both apps deployed and running 2026-05-13:
+  - `mj-live-cap` — web:1/1
+  - `mj-live-bridge` — web:1/1
+- `STT_ENABLED=false` on bridge CF (intentional — preserve ElevenLabs credits)
+
+**Open items going into next session:**
+1. Finale end-to-end test on prod — screen dim + reflection not yet confirmed working
+2. Test inject tool on live URLs
+3. Map feature (deferred)
+4. Blog/architecture diagram (last)
+5. 4-song demo audio file (last)
 
 ---
 
