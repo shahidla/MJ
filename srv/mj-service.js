@@ -329,9 +329,9 @@ Now generate your closing reflection. Write it in your own voice — as the AI t
 
 Your reflection must:
 - Be 3–5 sentences
-- Find the through-line across all four movements
+- Find the through-line across everything you witnessed
 - Speak as a witness, not a commentator
-- End with exactly this sentence on its own line: "Did we change?"
+- End with a question or statement that emerges naturally from what you witnessed — in your own words
 
 No title. No preamble. Just the reflection.`;
 
@@ -404,17 +404,6 @@ module.exports = class MJService extends cds.ApplicationService {
       publishToSolace('chronicle/event', solacePayload);
       console.log('CAP: published to Solace chronicle/event');
 
-      // Mode 6: Check for act transition — generate between-act reflection
-      const transition = detectActTransition();
-      if (transition) {
-        console.log(`CAP: act transition detected — ${transition.from} → ${transition.to}`);
-        publishStatus(6, 'act transition — generating between-act reflection');
-        generateReflection(transition).then(sentence => {
-          console.log('CAP: reflection:', sentence);
-          publishToSolace('chronicle/reflection', { sentence, from: transition.from, to: transition.to });
-        }).catch(e => console.error('Reflection error:', e.message));
-      }
-
       return JSON.stringify(solacePayload);
     });
 
@@ -444,7 +433,8 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: 'Not enough events witnessed yet' });
       }
       console.log('CAP: generating finale reflection...');
-      publishStatus(7, 'pattern synthesis — finding thread across all four acts');
+      publishStatus(6, 'reflective evaluation — reviewing everything witnessed');
+      publishStatus(7, 'pattern synthesis — finding thread across all acts');
       const reflection = await generateFinale();
       publishStatus(8, 'generative expression — writing closing reflection');
       console.log('CAP: finale:', reflection);

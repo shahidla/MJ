@@ -308,28 +308,7 @@
     min-height: 1.4em;
   }
 
-  /* ── Between-act reflection ── */
-  #reflection-panel {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 50;
-    width: 60vw;
-    text-align: center;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 1.5s ease;
-  }
-  #reflection-panel.visible { opacity: 1; }
-  #reflection-text {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: clamp(18px, 2.5vw, 32px);
-    letter-spacing: 2px;
-    color: rgba(255,255,255,0.85);
-    line-height: 1.6;
-  }
+  /* Between-act reflection removed — one final reflection only */
 
   /* ── Finale ── */
   #finale-panel {
@@ -357,24 +336,14 @@
   #finale-text {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: clamp(16px, 2.2vw, 28px);
+    font-size: clamp(18px, 2.4vw, 30px);
     letter-spacing: 2px;
-    color: rgba(255,255,255,0.9);
-    line-height: 1.8;
+    color: rgba(255,255,255,0.92);
+    line-height: 1.9;
     text-align: center;
-    max-width: 65vw;
+    max-width: 68vw;
     white-space: pre-line;
   }
-  #finale-closing {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(28px, 4vw, 56px);
-    letter-spacing: 10px;
-    color: rgba(201,168,76,0.9);
-    margin-top: 40px;
-    opacity: 0;
-    transition: opacity 2s ease;
-  }
-  #finale-closing.visible { opacity: 1; }
 
   /* ── Progress bar (reserved for map) ── */
   #progress-bar {
@@ -478,14 +447,9 @@
 
 <div id="pipeline-status"></div>
 
-<div id="reflection-panel">
-  <div id="reflection-text"></div>
-</div>
-
 <div id="finale-panel">
-  <div id="finale-label">08 — GENERATIVE EXPRESSION — AI CLOSING REFLECTION</div>
+  <div id="finale-label">AI CLOSING REFLECTION</div>
   <div id="finale-text"></div>
-  <div id="finale-closing">Did we change?</div>
 </div>
 
 <div id="progress-bar"></div>
@@ -645,38 +609,16 @@ function addChronicleEntry(payload) {
   if (entries.length > 12) entries[entries.length - 1].remove();
 }
 
-// ── Reflection (mode 06) ──
-function handleReflection(payload) {
-  setModeActive(6);
-  setModeOutput(6, payload.sentence);
-  const panel = document.getElementById('reflection-panel');
-  document.getElementById('reflection-text').textContent = payload.sentence || '';
-  panel.classList.add('visible');
-  setTimeout(() => {
-    panel.classList.remove('visible');
-    const row = document.getElementById('mrow-6');
-    if (row) { row.classList.remove('active'); row.classList.add('done'); }
-  }, 6000);
-}
-
-// ── Finale (modes 07+08) ──
+// ── Finale (modes 06→07→08 fire in sequence from CAP pipeline/status) ──
 function handleFinale(payload) {
-  setModeActive(7);
-  setModeOutput(7, 'synthesising all four acts');
-  setTimeout(() => {
-    setModeActive(8);
-    setModeOutput(8, 'writing closing reflection');
-  }, 4000);
-
   const reflection = payload.reflection || '';
-  const lines = reflection.replace(/Did we change\??\s*$/i, '').trim();
-  document.getElementById('finale-text').textContent = lines;
+  document.getElementById('finale-text').textContent = reflection;
   const panel = document.getElementById('finale-panel');
   panel.classList.add('visible');
-  setTimeout(() => {
-    document.getElementById('finale-closing').classList.add('visible');
-    setModeOutput(8, '"Did we change?"');
-  }, 4000);
+  // Mode 08 output shows the closing line Claude generated
+  const lines = reflection.split('\n').filter(l => l.trim());
+  const closingLine = lines[lines.length - 1] || '';
+  setModeOutput(8, closingLine);
 }
 
 // ── Transcript (STT live partial) ──
@@ -719,7 +661,7 @@ function connectSolace(cfg) {
   session.on(solace.SessionEventCode.UP_NOTICE, () => {
     wsStatus.textContent = 'solace live';
     wsStatus.className = 'ok';
-    const topics = ['audio/equalizer','chronicle/event','chronicle/reflection','chronicle/finale','pipeline/status'];
+    const topics = ['audio/equalizer','chronicle/event','chronicle/finale','pipeline/status'];
     topics.forEach((t, i) => session.subscribe(solace.SolclientFactory.createTopicDestination(t), true, t, 1000 + i));
   });
   session.on(solace.SessionEventCode.MESSAGE, (msg) => {
@@ -732,11 +674,10 @@ function connectSolace(cfg) {
         raw = typeof bin === 'string' ? bin : new TextDecoder().decode(bin);
       }
       const payload = JSON.parse(raw);
-      if      (topic === 'audio/equalizer')        handleEqPayload(payload);
-      else if (topic === 'chronicle/event')         handleChronicleEvent(payload);
-      else if (topic === 'chronicle/reflection')    handleReflection(payload);
-      else if (topic === 'chronicle/finale')        handleFinale(payload);
-      else if (topic === 'pipeline/status')         handlePipelineStatus(payload);
+      if      (topic === 'audio/equalizer')    handleEqPayload(payload);
+      else if (topic === 'chronicle/event')   handleChronicleEvent(payload);
+      else if (topic === 'chronicle/finale')  handleFinale(payload);
+      else if (topic === 'pipeline/status')   handlePipelineStatus(payload);
     } catch (e) { console.error('Solace message error:', e); }
   });
   session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (e) => {

@@ -730,7 +730,16 @@ Complete pass through all project files. Grouped by file and severity.
 - RAG context now visible in consumer: `heard` (raw STT) + `kb` (RAG result) per chronicle entry
 - `transcript` + `ragContext` added to Solace `chronicle/event` payload (was missing)
 - **Deployed to CF:** Phase 7 complete — bridge + CAP running
-**Deployed 2026-05-13:** All changes below live on CF
+**Deployed 2026-05-13 (partial):** Further changes pending deploy
+
+**Architecture decisions updated 2026-05-13:**
+- Between-act reflections REMOVED — one story, one voice, one reflection at the end
+- Finale auto-triggers when audio ends (producer sends audio_ended → bridge → CAP generateFinale)
+- 5 second delay after audio ends to allow last transcript to complete
+- "Did we change?" removed from hardcoded prompt — Claude generates natural closing in its own words
+- Mode 06 REFLECTIVE EVALUATION now fires as part of finale synthesis (06→07→08 sequence)
+- chronicle/reflection Solace topic no longer published or subscribed
+- Finale shows full Claude response as-is, no stripping or separation
 
 **Live data flow (final architecture):**
 ```

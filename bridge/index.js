@@ -81,11 +81,13 @@ wss.on('connection', (ws, req) => {
         // audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber needed
         sttAll.sendPcm(data);
       } else {
-        // JSON EQ frame
         try {
           const msg = JSON.parse(data.toString());
           if (msg.type === 'eq') {
             publish('audio/equalizer', { bars: msg.bars, ts: msg.ts });
+          } else if (msg.type === 'audio_ended') {
+            console.log('Audio ended — triggering CAP generateFinale');
+            triggerFinale();
           }
         } catch (e) { /* ignore malformed */ }
       }
@@ -126,6 +128,18 @@ app.get('/consumer', (req, res) => res.sendFile(path.join(__dirname, 'consumer.h
 app.get('/log',      (req, res) => res.sendFile(path.join(__dirname, 'log.html')));
 
 const CAP_BASE = () => (process.env.CAP_URL || 'http://localhost:4004/odata/v4/mj/receiveTranscript').replace('/odata/v4/mj/receiveTranscript', '');
+
+async function triggerFinale() {
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/generateFinale`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    });
+    const json = await r.json();
+    console.log('Finale triggered:', JSON.stringify(json).substring(0, 100));
+  } catch (e) {
+    console.error('Finale trigger error:', e.message);
+  }
+}
 
 app.get('/current-session', async (req, res) => {
   try {

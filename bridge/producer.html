@@ -103,6 +103,13 @@
       stopBtn.disabled = true;
       clearInterval(rafId);
       pcmEl.textContent = 'idle';
+      // Auto-trigger finale after 5s — allows last transcript to complete
+      if (producerWs && producerWs.readyState === WebSocket.OPEN) {
+        setTimeout(() => {
+          producerWs.send(JSON.stringify({ type: 'audio_ended' }));
+          pcmEl.textContent = 'triggering finale...';
+        }, 5000);
+      }
     });
 
     // --- Seek ---
