@@ -987,7 +987,7 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 
 ---
 
-### Session summary (2026-05-14)
+### Session summary (2026-05-14) — continued
 
 **Claude returns array of events — multiple chronicles per transcript:**
 - Claude prompt changed to return `[{...}, {...}]` array — one object per distinct moment/person/date
@@ -1016,6 +1016,40 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 2. 4-song demo audio (MJ.mp3 is a candidate — needs review)
 3. Map feature (deferred)
 4. Architecture diagram + blog (last)
+
+---
+
+### Session summary (2026-05-14) — ElevenLabs STT tuning
+
+**ATEST findings reviewed and adapted:**
+- User tested `stt_realtime.js` in `C:\Users\shahi\Downloads\ATEST` with manual commit strategy
+- Key findings from ATEST + other chat:
+  - Partials fire at ElevenLabs processing speed — not driven by our chunk size
+  - 4-second forced commits = empty FINALs (not enough audio context)
+  - `commitStrategy: 'automatic'` + batch-of-5 partials is the right approach for MJ
+
+**Changes applied to `bridge/stt.js`:**
+- Added `languageCode: 'en'` to ElevenLabs connection
+- Added `keyterms` — all 65 unique years from the 86-event KB + all 12 month names
+  — helps ElevenLabs accurately recognise historical years as MJ sings them
+- Rejected: forced periodic commit (5s too close to 4s threshold that gives empty FINALs)
+- Rejected: `commitStrategy: 'manual'` (automatic + batch-of-5 already solves chronicle frequency)
+- Rejected: `includeTimestamps` (not needed in current pipeline)
+
+**KB expansion:**
+- 86 events total (was 64) — 22 new entries added with OpenAI embeddings
+- New entries: Lindbergh, Daniel Hale Williams, Matthew Henson, KDKA radio, Walt Disney,
+  Berry Gordy, Beatles, Malcolm X, Yuri Gagarin, Muhammad Ali, Apollo 8, RFK eulogy,
+  MJ 1971 interview, Edison phonograph, Rudyard Kipling, Disneyland, Elizabeth II 1940,
+  Lincoln Gettysburg, They Don\'t Care annotation, Earth Song annotation, Man in the Mirror annotation
+- Script: `scripts/add-kb-entries.js`
+
+**Open items (updated):**
+1. Finale end-to-end test — screen dim + reflection not confirmed
+2. Commit + deploy current stt.js changes (keyterms + languageCode)
+3. 4-song demo audio review
+4. Map feature (deferred)
+5. Architecture diagram + blog (last)
 
 ---
 

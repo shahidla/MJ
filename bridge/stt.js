@@ -124,9 +124,21 @@ async function initElevenLabs() {
 
   try {
     connection = await client.speechToText.realtime.connect({
-      modelId:     'scribe_v2_realtime',
-      audioFormat: 'pcm_16000',
-      sampleRate:   SAMPLE_RATE,
+      modelId:      'scribe_v2_realtime',
+      audioFormat:  'pcm_16000',
+      sampleRate:    SAMPLE_RATE,
+      languageCode:  'en',
+      keyterms: [
+        'January','February','March','April','May','June',
+        'July','August','September','October','November','December',
+        '1776','1863','1865','1877','1879','1886','1893','1895',
+        '1903','1909','1917','1919','1920','1927','1928','1929',
+        '1940','1944','1945','1947','1948','1954','1955','1959',
+        '1960','1961','1962','1963','1964','1965','1966','1968',
+        '1969','1970','1971','1972','1973','1974','1976','1979',
+        '1981','1984','1985','1986','1987','1988','1989','1990',
+        '1991','1992','1994','1995','1997'
+      ]
     });
 
     connection.on('session_started', () => {
