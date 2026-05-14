@@ -209,6 +209,7 @@ function inject(text) {
 
 module.exports = {
   init, sendPcm, flushBatch, isIdle, inject,
-  getCapLog: () => capCallLog,
+  getCapLog:   () => capCallLog,
+  clearCapLog: () => { capCallLog.length = 0; },
   onChronicleEvent: (cb) => { onChronicleEvCb = cb; }
 };

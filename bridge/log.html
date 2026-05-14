@@ -239,7 +239,10 @@
 </div>
 
 <div id="cpi-section" style="margin-bottom:24px;">
-  <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;color:#484f58;margin-bottom:10px;">CAP CALLS THIS SESSION</div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;color:#484f58;">CAP CALLS THIS SESSION</div>
+    <button onclick="clearCapLog()" style="font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:11px;padding:4px 12px;border:1px solid #4a1010;background:#2a0a0a;color:#f85149;border-radius:4px;cursor:pointer;">CLEAR</button>
+  </div>
   <div id="cpi-cards" style="display:flex;flex-direction:column;gap:6px;"></div>
 </div>
 
@@ -338,7 +341,6 @@ function render() {
 }
 
 async function clearAll() {
-  if (!confirm('Delete ALL entries from the chronicle table? This cannot be undone.')) return;
   try {
     await fetch('/clear-chronicle', { method: 'POST' });
     allRows = [];
@@ -357,6 +359,11 @@ async function resetSession() {
   } catch (e) {
     alert('Reset failed: ' + e.message);
   }
+}
+
+async function clearCapLog() {
+  await fetch('/clear-cap-log', { method: 'POST' });
+  document.getElementById('cpi-cards').innerHTML = '';
 }
 
 async function loadCpiLog() {

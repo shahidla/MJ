@@ -907,8 +907,9 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 | CAP cognitive pipeline | ✅ | ✅ | None |
 | LangChain temporal memory | ✅ | ✅ | None |
 | HANA persistence (ChronicleEvents) | ✅ | ✅ | None |
-| HANA Vector RAG | ✅ | ❌ | Keyword search only, no embeddings |
-| Vector embeddings stored | ✅ | ❌ | embedding column empty |
+| HANA Vector RAG | ✅ | ✅ | Cosine similarity in JS (OpenAI text-embedding-3-small) |
+| Vector embeddings stored | ✅ | ✅ | 64 events with embeddings in mj-HistoryEvents.csv |
+| CPI — enterprise gateway | ✅ | ⚠️ | Deployed but removed from active path (Path 2) |
 | Reflection Agent (between-act) | ✅ | ✅ | None |
 | Finale Agent (closing reflection) | ✅ | ✅ | None |
 | Consumer 3-panel layout | ✅ | ✅ | None |
@@ -917,7 +918,7 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 | Architecture diagram | ✅ | ❌ | Not created |
 | Demo video | ✅ | ❌ | Needs 4-song audio first |
 
-**Two hard gaps:** vector embeddings and the 4-song audio file. Everything else is built or a cleanup task.
+**One hard gap:** 4-song demo audio file. Embeddings + vector RAG are complete.
 
 ---
 
@@ -957,6 +958,13 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 - RAG uses CDS SELECT API (not raw SQL) — works on both SQLite and HANA
 - `col()` helper handles HANA uppercase vs SQLite lowercase column names
 
+**Vector embeddings + RAG — COMPLETE:**
+- Model: OpenAI text-embedding-3-small (1536 dimensions)
+- 64 HistoryEvents all have embeddings stored in `db/data/mj-HistoryEvents.csv` (merged from HANA export via `scripts/merge-embeddings.js`)
+- `ragRetrieve()` uses cosine similarity in JS — ranks all 64 events, returns top 4 matches
+- Fallback: keyword LIKE search if no embeddings found
+- `col()` helper resolves HANA uppercase (EMBEDDING) vs SQLite lowercase (embedding)
+
 **Finale fix:**
 - `generateFinale` handler wrapped in try/catch — errors now return proper JSON instead of 500
 - Bridge: detects `json.error` vs `json.value` — logs real error message
@@ -976,6 +984,38 @@ audio/pcm Solace topic removed — ElevenLabs runs in bridge, no subscriber need
 3. Map feature (deferred)
 4. Blog/architecture diagram (last)
 5. 4-song demo audio file (last)
+
+---
+
+### Session summary (2026-05-14)
+
+**Claude returns array of events — multiple chronicles per transcript:**
+- Claude prompt changed to return `[{...}, {...}]` array — one object per distinct moment/person/date
+- `cognitiveProcess()` parses array, loops through, inserts each as separate ChronicleEvents row
+- `receiveTranscript` loops results — one INSERT + one Solace publish per event
+- Fallback: if Claude returns single `{}` instead of array, wraps it in array
+- `maxTokens` increased from 512 → 2048 (array of 10+ events was being cut off mid-JSON)
+- RAG top results increased from 2 → 4 (ensures both RFK and Armstrong surface for combined quotes)
+
+**Log page improvements:**
+- CLEAR button added to "CAP CALLS THIS SESSION" section — clears in-memory `capCallLog`
+- `POST /clear-cap-log` endpoint added to bridge
+- `clearCapLog()` exported from stt.js
+- Confirm dialog removed from DELETE ALL ENTRIES (was blocking in some browsers)
+
+**Audio files committed:**
+- `app/media/MJ.mp3` and `app/media/MJVocals.mp3` added to repo via Git LFS (25MB)
+
+**Inject tool validated:**
+- Single sentence → 1 chronicle ✅
+- Combined quotes (RFK + Armstrong) → 2 chronicles ✅ (after maxTokens fix)
+- Long dates list → multiple chronicles per date ✅
+
+**Open items:**
+1. Finale end-to-end on prod — not yet confirmed
+2. 4-song demo audio (MJ.mp3 is a candidate — needs review)
+3. Map feature (deferred)
+4. Architecture diagram + blog (last)
 
 ---
 

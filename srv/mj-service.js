@@ -155,7 +155,7 @@ function getModel() {
   return new ChatAnthropic({
     modelName: 'claude-haiku-4-5-20251001',
     apiKey: process.env.ANTHROPIC_API_KEY,
-    maxTokens: 512,
+    maxTokens: 2048,
   });
 }
 
@@ -204,7 +204,7 @@ async function ragRetrieve(db, transcript) {
       headline: col(r, 'headline'),
       context:  col(r, 'context'),
       score:    cosineSimilarity(queryVec, JSON.parse(col(r, 'embedding')))
-    })).sort((a, b) => b.score - a.score).slice(0, 2);
+    })).sort((a, b) => b.score - a.score).slice(0, 4);
 
     console.log(`RAG: top matches — ${scored.map(s => `${s.year}(${s.score.toFixed(3)})`).join(', ')}`);
     return scored.map(r => `${r.year}: ${r.headline} — ${r.context}`).join('\n\n');
@@ -224,7 +224,7 @@ async function ragKeyword(db, transcript) {
     const results = await SELECT.from('mj.HistoryEvents')
       .columns('year','headline','context')
       .where(words.map(w => `(lower(headline) like '%${w}%' or lower(context) like '%${w}%')`).join(' or '))
-      .limit(2)
+      .limit(4)
       .orderBy('year');
 
     return results.map(r => `${col(r,'year')}: ${col(r,'headline')} — ${col(r,'context')}`).join('\n\n');
@@ -256,16 +256,9 @@ ${memoryContext}
 
 ${ragContext ? `HISTORICAL CONTEXT FROM KNOWLEDGE BASE:\n${ragContext}\n` : ''}
 
-Your task for this new transcript:
-1. Classify the dominant emotion (one or two words)
-2. Extract any specific year mentioned (leave blank if none)
-3. Identify the historical event or human moment being described
-4. Identify the primary figure referenced — a named person, leader, scientist, activist, or artist (e.g. "Martin Luther King", "Thomas Edison", "Neil Armstrong"). If MJ himself is the only speaker, leave blank.
-5. Generate ONE insight sentence — if you have witnessed related figures or events before, draw the connection explicitly (e.g. "Edison appeared earlier as wonder; now he returns as a warning")
-6. Identify the country where this event occurred and its approximate coordinates
+Split the transcript into distinct moments — one entry per named person, year, or event. Return ONLY a JSON array, no markdown:
 
-Return ONLY valid JSON, no markdown:
-{"emotion":"","year":"","event":"","figure":"","insight":"one sentence that may reference earlier moments if relevant","country":"","lat":0.0,"lng":0.0}`;
+[{"emotion":"1-2 words","year":"if mentioned","event":"what happened","figure":"named person if any","insight":"one sentence connecting to earlier moments","country":"","lat":0.0,"lng":0.0}]`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),
@@ -274,23 +267,29 @@ Return ONLY valid JSON, no markdown:
 
   const text = response.content.trim();
 
-  // Parse Claude response
-  let result = { emotion: '', year: '', event: '', figure: '', insight: '', country: '', lat: 0, lng: 0 };
+  // Parse Claude response — expect array of events
+  let results = [];
   try {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}') + 1;
-    if (start >= 0) result = JSON.parse(text.substring(start, end));
+    const start = text.indexOf('[');
+    const end = text.lastIndexOf(']') + 1;
+    if (start >= 0) {
+      results = JSON.parse(text.substring(start, end));
+    } else {
+      // fallback: single object wrapped
+      const os = text.indexOf('{'), oe = text.lastIndexOf('}') + 1;
+      if (os >= 0) results = [JSON.parse(text.substring(os, oe))];
+    }
   } catch (e) {
     console.warn('Claude parse error:', e.message);
   }
 
-  // Mode 5: Update session memory with this event
+  // Mode 5: Update session memory for each event
   publishStatus(5, 'connecting figures and events across acts');
-  updateMemory({ ...result, transcript });
+  results.forEach(r => updateMemory({ ...r, transcript }));
 
-  console.log(`Cognitive modes 2-5 complete. Emotion: ${result.emotion}, Events seen: ${sessionMemory.events.length}`);
+  console.log(`Cognitive modes 2-5 complete. ${results.length} event(s), total seen: ${sessionMemory.events.length}`);
 
-  return { ...result, ragContext, transcript };
+  return results.map(r => ({ ...r, ragContext, transcript }));
 }
 
 // ── Mode 6: Reflective Evaluation — between-act sentence ───────────────────
@@ -365,56 +364,58 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: 'db_unavailable' });
       }
 
-      let result;
+      let results;
       try {
-        result = await cognitiveProcess(db, transcript);
+        results = await cognitiveProcess(db, transcript);
       } catch (e) {
         console.error('CAP: pipeline error:', e.message);
         return JSON.stringify({ error: e.message });
       }
 
-      // Persist to HANA/SQLite
-      const event = {
-        id:         cds.utils.uuid(),
-        sessionId:  SESSION_ID,
-        ts:         new Date(),
-        transcript,
-        emotion:    result.emotion,
-        year:       result.year,
-        event:      result.event,
-        figure:     result.figure,
-        insight:    result.insight,
-        ragContext: result.ragContext,
-        actNumber:  deriveActNumber(result.emotion),
-        country:    result.country,
-        lat:        result.lat || 0,
-        lng:        result.lng || 0
-      };
-      try {
-        await INSERT.into(ChronicleEvents).entries(event);
-        console.log('CAP: persisted chronicle event');
-      } catch (e) {
-        console.error('CAP: persist failed (HANA pool?):', e.message);
-        // Continue — still publish to Solace even if persist fails
+      const payloads = [];
+      for (const result of results) {
+        // Persist each event
+        const event = {
+          id:         cds.utils.uuid(),
+          sessionId:  SESSION_ID,
+          ts:         new Date(),
+          transcript,
+          emotion:    result.emotion,
+          year:       result.year,
+          event:      result.event,
+          figure:     result.figure,
+          insight:    result.insight,
+          ragContext: result.ragContext,
+          actNumber:  deriveActNumber(result.emotion),
+          country:    result.country,
+          lat:        result.lat || 0,
+          lng:        result.lng || 0
+        };
+        try {
+          await INSERT.into(ChronicleEvents).entries(event);
+        } catch (e) {
+          console.error('CAP: persist failed:', e.message);
+        }
+
+        // Publish each event to Solace + bus
+        const payload = {
+          emotion:    result.emotion,
+          year:       result.year,
+          event:      result.event,
+          figure:     result.figure,
+          insight:    result.insight,
+          transcript,
+          ragContext: result.ragContext,
+          country:    result.country,
+          lat:        result.lat || 0,
+          lng:        result.lng || 0
+        };
+        publishToSolace('chronicle/event', payload);
+        payloads.push(payload);
       }
 
-      // Publish chronicle/event to Solace
-      const solacePayload = {
-        emotion:    result.emotion,
-        year:       result.year,
-        event:      result.event,
-        figure:     result.figure,
-        insight:    result.insight,
-        transcript: transcript,
-        ragContext: result.ragContext,
-        country:    result.country,
-        lat:        result.lat || 0,
-        lng:        result.lng || 0
-      };
-      publishToSolace('chronicle/event', solacePayload);
-      console.log('CAP: published to Solace chronicle/event');
-
-      return JSON.stringify(solacePayload);
+      console.log(`CAP: persisted + published ${results.length} chronicle event(s)`);
+      return JSON.stringify(payloads[0] || {});
     });
 
     // Modes 7+8: Finale — generates closing reflection across all 4 acts

@@ -265,6 +265,7 @@ app.get('/test-chronicle', (req, res) => {
 });
 
 app.get('/cap-log', (req, res) => res.json(sttAll.getCapLog ? sttAll.getCapLog() : []));
+app.post('/clear-cap-log', (req, res) => { sttAll.clearCapLog && sttAll.clearCapLog(); res.json({ ok: true }); });
 
 app.get('/status', (req, res) => {
   res.json({
