@@ -21,11 +21,29 @@ let sessionReady     = false;
 let onTranscriptCb   = null;
 let onChronicleEvCb  = null;
 
-// ── Partials → PERCEPTION display only, no CAP calls ─────────────────────────
-// Committed finals → CAP (Claude splits into multiple events per sentence)
+// ── Partials → sentence extraction → CAP + PERCEPTION display ────────────────
+// Finals → full text → CAP (guaranteed catch-all for end of audio)
+const sentExact = new Set();
 
-function addToBatch(text) { /* partials display only — no CAP calls */ }
-function flushBatch() { /* nothing to flush */ }
+function extractSentences(text) {
+  return text.split(/(?<=[.?!]['"]?)\s+/).map(s => s.trim()).filter(s => /[.?!]['"]?$/.test(s) && s.length > 4);
+}
+
+function addToBatch(text) {
+  const clean = sanitize(text);
+  if (!clean) return;
+  for (const sentence of extractSentences(clean)) {
+    if (sentExact.has(sentence)) continue;
+    sentExact.add(sentence);
+    forwardToCAP(sentence);
+  }
+}
+function flushBatch() {
+  sentExact.clear();
+  if (connection && sessionReady) {
+    try { connection.commit(); console.log('STT: forced commit on audio end'); } catch (_) {}
+  }
+}
 
 const capCallLog = [];
 const MAX_CONCURRENT = parseInt(process.env.CAP_MAX_CONCURRENT || '3');
