@@ -2,6 +2,8 @@
 _out
 *.db
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 connection.properties
 .env
 default-*.json
