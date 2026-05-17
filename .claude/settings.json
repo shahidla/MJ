@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl *)",
+      "Bash(cf *)",
+      "Bash(npx cds *)",
+      "Bash(npm run *)",
+      "Bash(node *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(Get-Content *)"
+    ]
+  }
+}

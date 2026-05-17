@@ -383,7 +383,7 @@ module.exports = class MJService extends cds.ApplicationService {
 
       // Dedup against what was witnessed BEFORE this transcript (not what this transcript added)
       const filtered = results.filter(r => {
-        if (!r.event && !r.year && !r.figure) return false; // skip fully empty
+        if (!r.event || r.event.trim().length < 5) return false; // skip empty or trivial events
         const key = `${r.year||''}|${r.figure||''}`;
         if ((r.year || r.figure) && witnessedBefore.has(key)) return false; // dedup
         return true;
