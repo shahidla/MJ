@@ -9,12 +9,43 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #0f0f0f;
+    background: #050810;
     overflow: hidden;
     width: 100vw;
     height: 100vh;
     font-family: 'Cormorant Garamond', serif;
     cursor: default;
+  }
+
+  /* ── World map background ── */
+  #world-map-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image: url('/worldmap.svg');
+    background-size: cover;
+    background-position: center;
+    filter: invert(1) hue-rotate(180deg) brightness(0.4) saturate(1.8);
+    opacity: 1;
+  }
+
+  /* ── Map dots ── */
+  .map-dot {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #c9a84c;
+    box-shadow: 0 0 8px 3px rgba(201,168,76,0.7), 0 0 20px 6px rgba(201,168,76,0.3);
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    animation: dot-appear 0.5s ease;
+    pointer-events: none;
+  }
+
+  @keyframes dot-appear {
+    from { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+    to   { transform: translate(-50%,-50%) scale(1); opacity: 1; }
   }
 
   /* ── Status ── */
@@ -52,11 +83,11 @@
     padding-bottom: 6px;
   }
 
-  /* ── Top 80%: pipeline + chronicle ── */
+  /* ── Top 70%: pipeline + chronicle ── */
   #top-section {
-    flex: 0 0 80vh;
+    flex: 0 0 70vh;
     display: flex;
-    background: #0f0f0f;
+    background: transparent;
   }
 
   /* Pipeline: left 75% */
@@ -67,6 +98,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: rgba(10,10,16,0.55);
+    backdrop-filter: blur(1px);
   }
 
   #pipeline-modes {
@@ -76,9 +109,11 @@
     overflow: hidden;
   }
 
+  .mode-num { display: none; }
+
   .mode-row {
     display: grid;
-    grid-template-columns: 36px minmax(100px, 240px) 1fr;
+    grid-template-columns: minmax(100px, 220px) 1fr;
     align-items: center;
     gap: 14px;
     flex: 1;
@@ -124,19 +159,10 @@
   /* Active mode — colour + glow only, no size change */
   .mode-row.active .mode-num    { color: #e5d4a8; }
   .mode-row.active .mode-name   { color: #c9a84c; text-shadow: 0 0 18px rgba(201,168,76,0.5); letter-spacing: 4px; }
-  .mode-row.active .mode-output { color: #f0f0f0; opacity: 1; }
+  .mode-row.active .mode-output { color: #ffffff; font-size: clamp(18px, 1.9vw, 26px); font-family: 'Cormorant Garamond', serif; font-style: italic; opacity: 1; }
   .mode-row.done   .mode-num    { color: #666; }
   .mode-row.done   .mode-name   { color: #888; }
-  .mode-row.done   .mode-output { color: #888; opacity: 1; }
-
-  /* Mode 01 PERCEPTION — fixed layout, lyrics don't push other rows */
-  #mrow-1                         { align-items: center; }
-  #mrow-1 .mode-name              { color: #c9a84c; letter-spacing: 4px; }
-  #mrow-1 .mode-output            { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #mrow-1.active .mode-output,
-  #mrow-1.done   .mode-output     { color: #ffffff; font-size: clamp(18px, 1.9vw, 26px); font-style: italic; }
-  #mrow-1.active .mode-num        { color: #ffffff; }
-  #mrow-1.done   .mode-num        { color: #c9a84c; }
+  .mode-row.done   .mode-output { color: #ffffff; font-size: clamp(18px, 1.9vw, 26px); font-family: 'Cormorant Garamond', serif; font-style: italic; opacity: 1; }
 
   /* Chronicle: right 25% */
   #chronicle-panel {
@@ -145,7 +171,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: #0c0c0c;
+    background: rgba(8,8,14,0.5);
+    backdrop-filter: blur(1px);
   }
 
   #chronicle-entries {
@@ -189,12 +216,47 @@
     margin-top: 2px;
   }
 
+  /* ── 10% PERCEPTION bar — raw ElevenLabs transcript ── */
+  #perception-bar {
+    flex: 0 0 10vh;
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    border-top: 1px solid #1e1e1e;
+    border-bottom: 1px solid #1e1e1e;
+    background: rgba(8,8,14,0.55);
+    backdrop-filter: blur(1px);
+    overflow: hidden;
+    gap: 20px;
+  }
+
+  #perception-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(10px, 1vw, 13px);
+    letter-spacing: 5px;
+    color: #c9a84c;
+    white-space: nowrap;
+  }
+
+  #perception-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(18px, 1.9vw, 26px);
+    color: #ffffff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    transition: opacity 0.15s ease;
+  }
+
   /* ── Bottom 20%: EQ canvas + emotions ── */
   #bottom-bar {
     flex: 0 0 20vh;
     display: flex;
     border-top: 1px solid #2a2a2a;
-    background: #0a0a0a;
+    background: rgba(8,8,12,0.6);
+    backdrop-filter: blur(1px);
   }
 
   #eq-container {
@@ -311,6 +373,7 @@
 </head>
 <body>
 
+<div id="world-map-bg"></div>
 <div id="ws-status">connecting...</div>
 
 <!-- Main layout -->
@@ -322,28 +385,19 @@
     <div id="pipeline-panel">
       <div class="section-heading">AI COGNITIVE PIPELINE</div>
       <div id="pipeline-modes">
-        <div class="mode-row" id="mrow-1">
-          <span class="mode-num">01</span>
-          <span class="mode-name">PERCEPTION</span>
-          <span class="mode-output" id="mout-1">listening...</span>
-        </div>
         <div class="mode-row" id="mrow-2">
-          <span class="mode-num">02</span>
           <span class="mode-name">CLASSIFICATION</span>
           <span class="mode-output" id="mout-2">—</span>
         </div>
         <div class="mode-row" id="mrow-3">
-          <span class="mode-num">03</span>
           <span class="mode-name">RAG RETRIEVAL</span>
           <span class="mode-output" id="mout-3">—</span>
         </div>
         <div class="mode-row" id="mrow-4">
-          <span class="mode-num">04</span>
           <span class="mode-name">TEMPORAL MEMORY</span>
           <span class="mode-output" id="mout-4">—</span>
         </div>
         <div class="mode-row" id="mrow-5">
-          <span class="mode-num">05</span>
           <span class="mode-name">RELATIONAL REASONING</span>
           <span class="mode-output" id="mout-5">—</span>
         </div>
@@ -355,6 +409,12 @@
       <div id="chronicle-entries"></div>
     </div>
 
+  </div>
+
+  <!-- 10% Perception bar -->
+  <div id="perception-bar">
+    <div id="perception-label">PERCEPTION</div>
+    <div id="perception-text">listening...</div>
   </div>
 
   <!-- Bottom 20%: EQ canvas + Emotions -->
@@ -473,7 +533,7 @@ function renderEmotions() {
 
 // ── Mode management ───────────────────────────────────────────────────────────
 function setModeActive(num) {
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 2; i <= 5; i++) {
     const row = document.getElementById(`mrow-${i}`);
     if (!row) continue;
     row.classList.remove('active', 'done');
@@ -521,7 +581,6 @@ function handleChronicleEvent(payload) {
   const key = payload.transcript?.substring(0, 40) + payload.emotion;
   if (seenEvents.has(key)) return;
   seenEvents.add(key);
-  setModeOutput(1, payload.transcript);
   setModeOutput(2, `${payload.emotion || '—'} · ${payload.year || '—'}${payload.figure ? ' · ' + payload.figure : ''}`);
   setModeOutput(3, (payload.ragContext || '').substring(0, 100) + (payload.ragContext?.length > 100 ? '…' : ''));
   setModeOutput(4, Object.keys(emotionCounts).join(' → ') || '—');
@@ -534,6 +593,7 @@ function handleChronicleEvent(payload) {
 
   addChronicleEntry(payload);
   trackEmotion(payload.emotion);
+  if (payload.lat && payload.lng) plotMapDot(payload.lat, payload.lng);
 }
 
 // ── Chronicle entry ───────────────────────────────────────────────────────────
@@ -558,6 +618,17 @@ function addChronicleEntry(payload) {
   if (entries.length > 10) entries[entries.length - 1].remove();
 }
 
+// ── Map dot ───────────────────────────────────────────────────────────────────
+function plotMapDot(lat, lng) {
+  const x = (Number(lng) + 180) / 360 * 100;
+  const y = (90 - Number(lat)) / 180 * 100;
+  const dot = document.createElement('div');
+  dot.className = 'map-dot';
+  dot.style.left = x + '%';
+  dot.style.top  = y + '%';
+  document.body.appendChild(dot);
+}
+
 // ── Finale ────────────────────────────────────────────────────────────────────
 function handleFinale(payload) {
   document.getElementById('finale-text').textContent = payload.reflection || '';
@@ -579,25 +650,19 @@ function getDelta(prev, curr) {
 
 function handleTranscript(text, isFinal) {
   if (!text) return;
-  const el = document.getElementById('mout-1');
+  const el = document.getElementById('perception-text');
   if (!el) return;
 
   const delta = getDelta(lastPartialText, text);
   lastPartialText = text;
-  const display = delta || text; // fallback to full text if no delta
+  const display = delta || text;
 
-  el.style.transition = 'opacity 0.15s ease';
   el.style.opacity = '0';
   clearTimeout(perceptionTimer);
   perceptionTimer = setTimeout(() => {
     el.textContent = display;
     el.style.opacity = '1';
   }, 150);
-
-  const r1 = document.getElementById('mrow-1');
-  if (r1 && !r1.classList.contains('active') && !r1.classList.contains('done')) {
-    r1.classList.add('active');
-  }
 }
 
 // ── Bridge WebSocket (always connect for live partials) ───────────────────────

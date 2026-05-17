@@ -208,6 +208,7 @@ app.post('/clear-chronicle', async (req, res) => {
   }
 });
 app.get('/audio-file', (req, res) => res.sendFile(path.join(__dirname, 'vocals.mp3')));
+app.get('/worldmap.svg', (req, res) => res.sendFile(path.join(__dirname, 'worldmap.svg')));
 app.get('/worklet', (req, res) => res.sendFile(path.join(__dirname, 'mj-audio-worklet.js')));
 app.get('/solace-client.js', (req, res) => res.sendFile(path.join(__dirname, 'node_modules/solclientjs/lib-browser/solclient.js')));
 app.get('/solace-config', (req, res) => res.json({

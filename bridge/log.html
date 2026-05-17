@@ -297,7 +297,7 @@ function render() {
   document.getElementById('cards').innerHTML = rows.map(r => {
     const act = r.actNumber || 0;
     const ts = r.ts ? new Date(r.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-    const rag = (r.ragContext || '').substring(0, 220) + (r.ragContext?.length > 220 ? '…' : '');
+    const ragRecords = (r.ragContext || '').split('\n\n').map(s => s.trim()).filter(Boolean);
     const geo = r.country ? `${r.country}${r.lat ? `  ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}` : ''}` : '';
 
     return `
@@ -326,9 +326,19 @@ function render() {
               ${r.figure ? `&nbsp;·&nbsp;<span style="color:#6b7280;">figure</span> <span style="color:#c9a84c;">${r.figure}</span>` : ''}
             </div>
           </div>
-          <div class="footer-block">
-            <div class="footer-label">kb retrieved</div>
-            <div class="rag-text">${rag || '—'}</div>
+          <div class="footer-block" style="grid-column:1/-1;">
+            <div class="footer-label">kb retrieved (${ragRecords.length})</div>
+            ${ragRecords.length === 0 ? '<div class="rag-text">—</div>' :
+              ragRecords.map(rec => {
+                const match = rec.match(/^(\d{4}):\s*(.+?)(?:\s*—\s*(.+))?$/s);
+                const year = match ? match[1] : '—';
+                const headline = match ? match[2] : rec.substring(0, 60);
+                return `<div style="background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:6px 10px;margin-top:4px;">
+                  <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:#e3b341;letter-spacing:2px;">${year}</span>
+                  <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#58a6ff;margin-left:8px;">${headline}</span>
+                </div>`;
+              }).join('')
+            }
           </div>
           ${geo ? `<div class="footer-block">
             <div class="footer-label">location</div>
