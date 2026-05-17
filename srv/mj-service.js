@@ -199,12 +199,16 @@ async function ragRetrieve(db, transcript) {
 
     const queryVec = await getEmbedding(transcript);
 
-    const scored = withEmbed.map(r => ({
-      year:     col(r, 'year'),
-      headline: col(r, 'headline'),
-      context:  col(r, 'context'),
-      score:    cosineSimilarity(queryVec, JSON.parse(col(r, 'embedding')))
-    })).sort((a, b) => b.score - a.score).slice(0, 4);
+    // Extract years mentioned in transcript for boosting
+    const transcriptYears = (transcript.match(/\b(1[7-9]\d{2}|20[0-2]\d)\b/g) || []).map(Number);
+
+    const scored = withEmbed.map(r => {
+      const kbYear = Number(col(r, 'year'));
+      const base   = cosineSimilarity(queryVec, JSON.parse(col(r, 'embedding')));
+      // Boost if KB year matches a year in transcript
+      const boost  = transcriptYears.includes(kbYear) ? 0.15 : 0;
+      return { year: col(r,'year'), headline: col(r,'headline'), context: col(r,'context'), score: base + boost };
+    }).sort((a, b) => b.score - a.score).slice(0, 4);
 
     console.log(`RAG: top matches — ${scored.map(s => `${s.year}(${s.score.toFixed(3)})`).join(', ')}`);
     return scored.map(r => `${r.year}: ${r.headline} — ${r.context}`).join('\n\n');
@@ -239,7 +243,7 @@ async function cognitiveProcess(db, transcript) {
   publishStatus(1, 'transcript received — pipeline starting');
 
   // Mode 3: Contextual Retrieval — query HANA for historical context
-  publishStatus(3, 'embedding transcript — searching 64 events via vector similarity');
+  publishStatus(3, 'embedding transcript — searching knowledge base via vector similarity');
   const ragContext = await ragRetrieve(db, transcript);
 
   // Mode 4: Temporal Memory — build structured context of what AI has witnessed
@@ -256,9 +260,11 @@ ${memoryContext}
 
 ${ragContext ? `HISTORICAL CONTEXT FROM KNOWLEDGE BASE:\n${ragContext}\n` : ''}
 
-Split the transcript into distinct moments — one entry per named person, year, or event. Return ONLY a JSON array, no markdown:
+Split the transcript into distinct moments — one entry per named person, year, or historical event. Only include real historical moments, named figures, or meaningful dates. Leave year blank if no specific historical year is spoken.
 
-[{"emotion":"1-2 words","year":"if mentioned","event":"what happened","figure":"named person if any","insight":"one sentence connecting to earlier moments","country":"","lat":0.0,"lng":0.0}]`;
+Return ONLY a JSON array, no markdown:
+
+[{"emotion":"1-2 words","year":"","event":"","figure":"","insight":"","country":"","lat":0.0,"lng":0.0}]`;
 
   const response = await model.invoke([
     new SystemMessage(systemPrompt),
@@ -283,9 +289,9 @@ Split the transcript into distinct moments — one entry per named person, year,
     console.warn('Claude parse error:', e.message);
   }
 
-  // Mode 5: Update session memory for each event
+  // Mode 5: Update session memory — only meaningful events
   publishStatus(5, 'connecting figures and events across acts');
-  results.forEach(r => updateMemory({ ...r, transcript }));
+  results.filter(r => !r.skip).forEach(r => updateMemory({ ...r, transcript }));
 
   console.log(`Cognitive modes 2-5 complete. ${results.length} event(s), total seen: ${sessionMemory.events.length}`);
 
@@ -364,6 +370,9 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: 'db_unavailable' });
       }
 
+      // Snapshot memory BEFORE processing — used for dedup after
+      const witnessedBefore = new Set(sessionMemory.events.map(e => `${e.year||''}|${e.figure||''}`));
+
       let results;
       try {
         results = await cognitiveProcess(db, transcript);
@@ -372,8 +381,16 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: e.message });
       }
 
+      // Dedup against what was witnessed BEFORE this transcript (not what this transcript added)
+      const filtered = results.filter(r => {
+        if (!r.event && !r.year && !r.figure) return false; // skip fully empty
+        const key = `${r.year||''}|${r.figure||''}`;
+        if ((r.year || r.figure) && witnessedBefore.has(key)) return false; // dedup
+        return true;
+      });
+
       const payloads = [];
-      for (const result of results) {
+      for (const result of filtered) {
         // Persist each event
         const event = {
           id:         cds.utils.uuid(),
@@ -414,8 +431,8 @@ module.exports = class MJService extends cds.ApplicationService {
         payloads.push(payload);
       }
 
-      console.log(`CAP: persisted + published ${results.length} chronicle event(s)`);
-      return JSON.stringify(payloads[0] || {});
+      console.log(`CAP: persisted + published ${payloads.length} chronicle event(s)`);
+      return JSON.stringify(payloads);
     });
 
     // Modes 7+8: Finale — generates closing reflection across all 4 acts

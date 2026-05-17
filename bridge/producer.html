@@ -41,7 +41,10 @@
   <div id="status">Bridge: <span id="bridge-status">connecting...</span></div>
   <div id="pcm-status">PCM16: <span id="pcm-indicator">idle</span></div>
 
+  <!-- Full music → speakers + EQ -->
   <audio id="audio" src="/audio-file" preload="auto" crossorigin="anonymous"></audio>
+  <!-- Isolated vocals → STT only (muted) -->
+  <audio id="stt-audio" src="/stt-audio-file" preload="auto" crossorigin="anonymous" muted></audio>
 
   <script>
     const BRIDGE_WS = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}?role=producer`;
@@ -117,6 +120,7 @@
     seekEl.addEventListener('mouseup', () => {
       seekEl._dragging = false;
       audio.currentTime = seekEl.value;
+      document.getElementById('stt-audio').currentTime = seekEl.value;
     });
     seekEl.addEventListener('input', () => {
       timeEl.textContent = `${fmt(seekEl.value)} / ${fmt(audio.duration)}`;
@@ -134,11 +138,12 @@
       mediaSource.connect(analyser);
       analyser.connect(audioCtx.destination); // speakers at native quality
 
-      // Separate 16kHz context for PCM capture → STT only
+      // Separate 16kHz context for PCM capture → STT only (from isolated vocals)
       const sttCtx = new AudioContext({ sampleRate: 16000 });
       await sttCtx.audioWorklet.addModule('/worklet');
       workletNode = new AudioWorkletNode(sttCtx, 'mj-pcm-logger-worklet');
-      const stream = audio.captureStream();
+      const sttAudio = document.getElementById('stt-audio');
+      const stream = sttAudio.captureStream();
       const streamSource = sttCtx.createMediaStreamSource(stream);
       streamSource.connect(workletNode);
       workletNode.connect(sttCtx.destination);
@@ -166,6 +171,7 @@
 
       if (playing) {
         audio.pause();
+        document.getElementById('stt-audio').pause();
         playing = false;
         playBtn.textContent = 'PLAY';
         clearInterval(rafId);
@@ -173,6 +179,7 @@
       } else {
         await audioCtx.resume();
         await audio.play();
+        await document.getElementById('stt-audio').play();
         playing = true;
         playBtn.textContent = 'PAUSE';
         stopBtn.disabled = false;
@@ -184,6 +191,9 @@
     stopBtn.addEventListener('click', () => {
       audio.pause();
       audio.currentTime = 0;
+      const sttAudio = document.getElementById('stt-audio');
+      sttAudio.pause();
+      sttAudio.currentTime = 0;
       seekEl.value = 0;
       playing = false;
       playBtn.textContent = 'PLAY';

@@ -17,46 +17,19 @@ function logTranscript(label, text) {
 }
 
 let connection       = null;
+let sessionReady     = false;
 let onTranscriptCb   = null;
 let onChronicleEvCb  = null;
 
-// ── Batch: collect distinct transcript chunks, send every 5 new words ────────
-const BATCH_SIZE  = 5;
-const transcriptBatch = [];
-let lastBatchText = '';
+// ── Partials → PERCEPTION display only, no CAP calls ─────────────────────────
+// Committed finals → CAP (Claude splits into multiple events per sentence)
 
-function newWordCount(prev, curr) {
-  const pw = prev.trim().split(/\s+/).filter(Boolean);
-  const cw = curr.trim().split(/\s+/).filter(Boolean);
-  let i = 0;
-  while (i < pw.length && i < cw.length && pw[i] === cw[i]) i++;
-  return cw.length - i;
-}
-
-function addToBatch(text) {
-  const clean = sanitize(text);
-  if (!clean) return;
-  if (newWordCount(lastBatchText, clean) < 5) return; // skip if < 5 new words
-  lastBatchText = clean;
-  transcriptBatch.push(clean);
-  console.log(`[batch] ${transcriptBatch.length}/${BATCH_SIZE}: ${clean.substring(0, 60)}`);
-  if (transcriptBatch.length >= BATCH_SIZE) {
-    const combined = transcriptBatch.splice(0, BATCH_SIZE).join(' ... ');
-    lastBatchText = '';
-    forwardToCAP(combined);
-  }
-}
-
-// Call at audio end to flush any remaining partial batch
-function flushBatch() {
-  if (transcriptBatch.length === 0) return;
-  const combined = transcriptBatch.splice(0).join(' ');
-  console.log(`[batch] flushing ${transcriptBatch.length} remaining`);
-  forwardToCAP(combined);
-}
+function addToBatch(text) { /* partials display only — no CAP calls */ }
+function flushBatch() { /* nothing to flush */ }
 
 const capCallLog = [];
-let capInFlight  = false;
+const MAX_CONCURRENT = parseInt(process.env.CAP_MAX_CONCURRENT || '3');
+let capInFlightCount = 0;
 const finalQueue = [];
 
 function sanitize(text) {
@@ -67,14 +40,14 @@ function sanitize(text) {
     .replace(/[\x00-\x1F\x7F]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-    .substring(0, 500);
+    .substring(0, 3000);
 }
 
 async function sendToCAP(body) {
   const entry = { ts: new Date().toISOString(), transcript: body, status: null };
   capCallLog.push(entry);
   if (capCallLog.length > 50) capCallLog.shift();
-  capInFlight = true;
+  capInFlightCount++;
   try {
     const res = await fetch(CAP_URL, {
       method:  'POST',
@@ -84,22 +57,25 @@ async function sendToCAP(body) {
     entry.status = res.ok ? 'ok' : `error ${res.status}`;
     if (!res.ok) console.error('CAP error:', res.status);
     else {
-      console.log('→ CAP [FINAL]:', body);
+      console.log(`→ CAP [${capInFlightCount} in flight]:`, body.substring(0, 80));
       try {
         const json = await res.json();
-        const data = JSON.parse(json.value || '{}');
-        if (data && data.emotion !== undefined && onChronicleEvCb) onChronicleEvCb(data);
+        const raw = JSON.parse(json.value || '[]');
+        const events = Array.isArray(raw) ? raw : (raw.emotion !== undefined ? [raw] : []);
+        events.forEach(data => {
+          if (data && data.emotion !== undefined && onChronicleEvCb) onChronicleEvCb(data);
+        });
       } catch (_) {}
     }
   } catch (e) {
     entry.status = `error: ${e.message}`;
     console.error('CAP error:', e.message);
   } finally {
-    capInFlight = false;
-    if (finalQueue.length > 0) {
+    capInFlightCount--;
+    // Drain queue — fire next if slot available
+    if (finalQueue.length > 0 && capInFlightCount < MAX_CONCURRENT) {
       const next = finalQueue.shift();
-      console.log(`Sending queued final (${finalQueue.length} still waiting)`);
-      await sendToCAP(next);
+      sendToCAP(next); // intentionally not awaited — parallel
     }
   }
 }
@@ -107,12 +83,12 @@ async function sendToCAP(body) {
 async function forwardToCAP(text) {
   const body = sanitize(text);
   if (!body) return;
-  if (capInFlight) {
+  if (capInFlightCount >= MAX_CONCURRENT) {
     finalQueue.push(body);
-    console.log(`CAP in flight — queued (${finalQueue.length} waiting)`);
+    console.log(`CAP at max (${MAX_CONCURRENT}) — queued (${finalQueue.length} waiting)`);
     return;
   }
-  await sendToCAP(body);
+  sendToCAP(body); // intentionally not awaited — fire and continue
 }
 
 // ── ElevenLabs connection ────────────────────────────────────────────────────
@@ -124,25 +100,14 @@ async function initElevenLabs() {
 
   try {
     connection = await client.speechToText.realtime.connect({
-      modelId:      'scribe_v2_realtime',
-      audioFormat:  'pcm_16000',
-      sampleRate:    SAMPLE_RATE,
-      languageCode:  'en',
-      keyterms: [
-        'January','February','March','April','May','June',
-        'July','August','September','October','November','December',
-        '1776','1863','1865','1877','1879','1886','1893','1895',
-        '1903','1909','1917','1919','1920','1927','1928','1929',
-        '1940','1944','1945','1947','1948','1954','1955','1959',
-        '1960','1961','1962','1963','1964','1965','1966','1968',
-        '1969','1970','1971','1972','1973','1974','1976','1979',
-        '1981','1984','1985','1986','1987','1988','1989','1990',
-        '1991','1992','1994','1995','1997'
-      ]
+      modelId:     'scribe_v2_realtime',
+      audioFormat: 'pcm_16000',
+      sampleRate:   SAMPLE_RATE,
     });
 
     connection.on('session_started', () => {
-      console.log('ElevenLabs: session started');
+      sessionReady = true;
+      console.log('ElevenLabs: session started — ready for audio');
     });
 
     connection.on('partial_transcript', (data) => {
@@ -160,8 +125,7 @@ async function initElevenLabs() {
       console.log('[FINAL]', text);
       logTranscript('FINAL', text);
       onTranscriptCb && onTranscriptCb(text, true);
-      // Finals always go to CAP immediately — guaranteed chronicle
-      lastBatchText = text; // sync so next partial delta is relative to this
+      // Final committed — send full confirmed text to CAP
       forwardToCAP(sanitize(text));
     });
 
@@ -173,6 +137,7 @@ async function initElevenLabs() {
     connection.on('close', () => {
       console.log('ElevenLabs: session closed, reconnecting...');
       connection = null;
+      sessionReady = false;
       setTimeout(initElevenLabs, 3000);
     });
 
@@ -183,7 +148,7 @@ async function initElevenLabs() {
 }
 
 function sendToElevenLabs(buffer) {
-  if (!connection) return;
+  if (!connection || !sessionReady) return;
   try {
     connection.send({ audioBase64: buffer.toString('base64') });
   } catch (e) {
@@ -210,7 +175,7 @@ function sendPcm(buffer) {
   sendToElevenLabs(buffer);
 }
 
-function isIdle() { return !capInFlight && finalQueue.length === 0 && transcriptBatch.length === 0; }
+function isIdle() { return capInFlightCount === 0 && finalQueue.length === 0; }
 
 function inject(text) {
   const clean = sanitize(text);
