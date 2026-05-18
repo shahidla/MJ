@@ -344,12 +344,9 @@ The sentence must feel earned, not generic. Reference specific moments you witne
 
 // ── Modes 7+8: Pattern Synthesis + Generative Expression — the finale ───────
 async function generateFinale() {
-  const model = new ChatAnthropic({
-    modelName: 'claude-opus-4-7',  // Opus for the finale — this moment deserves it
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    maxTokens: 1024,
-    topP: 1,  // explicit — LangChain default of -1 is rejected by this model
-  });
+  // Use Anthropic SDK directly — LangChain sends top_p which is deprecated on Opus 4.7
+  const Anthropic = require('@anthropic-ai/sdk');
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const memoryContext = buildMemoryContext();
   const allInsights = sessionMemory.events.map(e =>
@@ -375,8 +372,12 @@ Your reflection must:
 
 No title. No preamble. Just the reflection.`;
 
-  const response = await model.invoke([new HumanMessage(prompt)]);
-  return response.content.trim();
+  const response = await client.messages.create({
+    model: 'claude-opus-4-7',
+    max_tokens: 1024,
+    messages: [{ role: 'user', content: prompt }]
+  });
+  return response.content[0].text.trim();
 }
 
 // ── CAP Service Handler ─────────────────────────────────────────────────────
@@ -551,12 +552,32 @@ module.exports = class MJService extends cds.ApplicationService {
         const reflection = await generateFinale();
         publishStatus(8, 'generative expression — writing closing reflection');
         console.log('CAP: finale:', reflection);
+
+        // Persist finale as a special chronicle entry (actNumber 8)
+        const { ChronicleEvents } = this.entities;
+        await INSERT.into(ChronicleEvents).entries({
+          id:        cds.utils.uuid(),
+          sessionId: SESSION_ID,
+          ts:        new Date(),
+          event:     'finale',
+          insight:   reflection,
+          actNumber: 8
+        });
+
         publishToSolace('chronicle/finale', { reflection });
         return JSON.stringify({ reflection });
       } catch (e) {
         console.error('CAP: finale error:', e.message);
         return JSON.stringify({ error: e.message });
       }
+    });
+
+    this.on('currentFinale', async (req) => {
+      const { ChronicleEvents } = this.entities;
+      const row = await SELECT.one.from(ChronicleEvents)
+        .where({ sessionId: SESSION_ID, event: 'finale' })
+        .orderBy('ts desc');
+      return JSON.stringify(row ? { reflection: row.insight, ts: row.ts } : { error: 'no finale yet' });
     });
 
     await super.init();

@@ -231,6 +231,7 @@
 <div class="controls">
   <button class="btn-refresh" onclick="refresh()">REFRESH</button>
   <button class="btn-clear" onclick="deleteAll()">DELETE</button>
+  <button onclick="triggerFinale()" style="font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:13px;padding:9px 22px;border:none;cursor:pointer;border-radius:4px;background:#3d1f6e;color:#c084fc;" id="btn-finale">TRIGGER FINALE</button>
   <button class="btn-all" id="btn-all" onclick="toggleAll()">SHOW ALL</button>
   <input type="text" id="filter" placeholder="filter by transcript, emotion, year, event..." oninput="render()">
   <span id="count"></span>
@@ -409,6 +410,20 @@ async function loadCpiLog() {
           <span style="font-family:'Cormorant Garamond',serif;font-size:13px;color:#8b949e;">${r.transcript}</span>
         </div>`).join('');
   } catch(e) {}
+}
+
+async function triggerFinale() {
+  const btn = document.getElementById('btn-finale');
+  btn.textContent = 'GENERATING...';
+  btn.disabled = true;
+  try {
+    await fetch('/trigger-finale', { method: 'POST' });
+    btn.textContent = 'FINALE SENT';
+    setTimeout(() => { btn.textContent = 'TRIGGER FINALE'; btn.disabled = false; }, 12000);
+  } catch (e) {
+    btn.textContent = 'FAILED';
+    setTimeout(() => { btn.textContent = 'TRIGGER FINALE'; btn.disabled = false; }, 3000);
+  }
 }
 
 async function injectText() {

@@ -17,6 +17,9 @@ service MJService {
   // Wipe all ChronicleEvents — clean slate before a demo run
   action clearChronicle() returns String;
 
+  // Read the finale reflection for the current session
+  action currentFinale() returns String;
+
   // Read-only access to chronicle for monitoring
   entity ChronicleEvents as projection on mj.ChronicleEvents;
   entity HistoryEvents    as projection on mj.HistoryEvents;

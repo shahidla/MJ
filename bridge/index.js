@@ -269,6 +269,33 @@ app.get('/test-chronicle', (req, res) => {
 app.get('/cap-log', (req, res) => res.json(sttAll.getCapLog ? sttAll.getCapLog() : []));
 app.post('/clear-cap-log', (req, res) => { sttAll.clearCapLog && sttAll.clearCapLog(); res.json({ ok: true }); });
 
+app.get('/current-finale', async (req, res) => {
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/currentFinale`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const json = await r.json();
+    res.json(JSON.parse(json.value || '{}'));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/trigger-finale', async (req, res) => {
+  res.json({ ok: true, msg: 'finale triggered' });
+  try {
+    const r = await fetch(`${CAP_BASE()}/odata/v4/mj/generateFinale`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    });
+    const json = await r.json();
+    const data = JSON.parse(json.value || '{}');
+    if (data.reflection) {
+      bus.emit('chronicle/finale', { reflection: data.reflection });
+      console.log('Manual finale OK:', data.reflection.substring(0, 80));
+    } else {
+      console.error('Manual finale error:', JSON.stringify(data));
+    }
+  } catch (e) {
+    console.error('Manual finale error:', e.message);
+  }
+});
+
 app.get('/status', (req, res) => {
   res.json({
     transport: TRANSPORT,

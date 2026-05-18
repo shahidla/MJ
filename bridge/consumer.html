@@ -353,10 +353,21 @@
     pointer-events: none;
     opacity: 0;
     transition: opacity 2s ease, background 2s ease;
+    cursor: pointer;
   }
   #finale-panel.visible {
     opacity: 1;
     background: rgba(8,8,8,0.97);
+    pointer-events: all;
+  }
+  #finale-dismiss {
+    position: absolute;
+    bottom: 32px;
+    right: 40px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.2);
   }
   #finale-label {
     font-family: 'Share Tech Mono', monospace;
@@ -383,6 +394,12 @@
 
 <div id="world-map-bg"></div>
 <div id="ws-status">connecting...</div>
+
+<!-- Fix 5: Title branding -->
+<div style="position:fixed;top:12px;left:18px;z-index:50;pointer-events:none;">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(16px,1.8vw,22px);letter-spacing:8px;color:#c9a84c;opacity:0.8;">MJ LIVE</div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:clamp(8px,0.75vw,10px);letter-spacing:3px;color:rgba(201,168,76,0.35);margin-top:2px;">AI COGNITIVE WITNESS</div>
+</div>
 
 <!-- Main layout -->
 <div id="main-layout">
@@ -445,6 +462,7 @@
 <div id="finale-panel">
   <div id="finale-label">AI CLOSING REFLECTION</div>
   <div id="finale-text"></div>
+  <div id="finale-dismiss">ESC or click to close</div>
 </div>
 
 <script src="/solace-client.js"></script>
@@ -556,9 +574,10 @@ function setModeOutput(num, text) {
 }
 
 function resetModes() {
-  for (let i = 1; i <= 5; i++) {
+  // Fix 7: on new transcript, set all rows to 'done' (hold last output visible) not blank
+  for (let i = 2; i <= 5; i++) {
     const row = document.getElementById(`mrow-${i}`);
-    if (row) row.classList.remove('active', 'done');
+    if (row) { row.classList.remove('active'); row.classList.add('done'); }
   }
   lastPartialText = '';
 }
@@ -603,9 +622,16 @@ function handleChronicleEvent(payload) {
   if (!chronicleTimer) drainChronicleQueue();
 }
 
+function ragHeadline(ragContext) {
+  // Fix 2: extract clean "YEAR: Headline" from ragContext for pipeline display
+  const first = (ragContext || '').split('\n\n')[0];
+  const match = first.match(/^(\d{4}[s]?):\s*(.+?)\s*—/);
+  return match ? `${match[1]}: ${match[2]}` : first.substring(0, 80);
+}
+
 function renderChronicleEntry(payload) {
   setModeOutput(2, `${payload.emotion || '—'} · ${payload.year || '—'}${payload.figure ? ' · ' + payload.figure : ''}`);
-  setModeOutput(3, (payload.ragContext || '').substring(0, 100) + (payload.ragContext?.length > 100 ? '…' : ''));
+  setModeOutput(3, ragHeadline(payload.ragContext));
   setModeOutput(4, Object.keys(emotionCounts).join(' → ') || '—');
   setModeOutput(5, payload.insight);
   setModeActive(5);
@@ -624,21 +650,26 @@ function addChronicleEntry(payload) {
   const container = document.getElementById('chronicle-entries');
   const entry = document.createElement('div');
   entry.className = 'ce entering';
+
+  // Fix 1: show RAG top match headline in chronicle
+  const rag = ragHeadline(payload.ragContext);
+
   entry.innerHTML = `
     <div class="ce-year">${payload.year || '—'}</div>
     <div class="ce-event">${payload.event || ''}</div>
     ${payload.figure ? `<div class="ce-event" style="color:#c9a84c;font-size:clamp(11px,1.1vw,14px)">${payload.figure}</div>` : ''}
+    ${rag ? `<div class="ce-emotion" style="color:#4a7c9e;margin-top:3px;">↳ ${rag}</div>` : ''}
     <div class="ce-emotion">${(payload.emotion || '').split(',')[0].trim()}</div>
   `;
   container.insertBefore(entry, container.firstChild);
   requestAnimationFrame(() => requestAnimationFrame(() => entry.classList.remove('entering')));
 
-  // Fade older entries
+  // Fix 6: fade less aggressively — keep 12 entries, fade slowly
   const entries = container.querySelectorAll('.ce');
   entries.forEach((el, i) => {
-    el.style.opacity = Math.max(0.08, 1 - i * 0.2);
+    el.style.opacity = Math.max(0.15, 1 - i * 0.1);
   });
-  if (entries.length > 10) entries[entries.length - 1].remove();
+  if (entries.length > 12) entries[entries.length - 1].remove();
 }
 
 // ── Map dot ───────────────────────────────────────────────────────────────────
@@ -653,11 +684,35 @@ function plotMapDot(lat, lng) {
 }
 
 // ── Finale ────────────────────────────────────────────────────────────────────
-function handleFinale(payload) {
-  document.getElementById('finale-text').textContent = payload.reflection || '';
-  document.getElementById('finale-panel').classList.add('visible');
-  showStatus('AI closing reflection');
+function typewriter(el, text, msPerWord = 120) {
+  el.textContent = '';
+  const words = text.split(' ');
+  let i = 0;
+  function next() {
+    if (i >= words.length) return;
+    el.textContent += (i > 0 ? ' ' : '') + words[i++];
+    setTimeout(next, msPerWord);
+  }
+  next();
 }
+
+function dismissFinale() {
+  document.getElementById('finale-panel').classList.remove('visible');
+}
+
+function handleFinale(payload) {
+  const panel = document.getElementById('finale-panel');
+  const textEl = document.getElementById('finale-text');
+  textEl.textContent = '';
+  panel.classList.add('visible');
+  showStatus('AI closing reflection');
+  // Fix 4: word-by-word typewriter reveal
+  setTimeout(() => typewriter(textEl, payload.reflection || '', 110), 800);
+}
+
+// Fix 3: dismiss finale on ESC or click
+document.addEventListener('keydown', e => { if (e.key === 'Escape') dismissFinale(); });
+document.getElementById('finale-panel').addEventListener('click', dismissFinale);
 
 // ── STT transcript (live partial/final → mode 01, delta only) ────────────────
 let lastPartialText  = '';
