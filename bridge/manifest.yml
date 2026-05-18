@@ -8,7 +8,7 @@ applications:
     command: node index.js
     env:
       TRANSPORT: solace
-      STT_ENABLED: false
+      STT_ENABLED: true
       NODE_ENV: production
       CAP_URL: https://mj-live-cap.cfapps.us10-001.hana.ondemand.com/odata/v4/mj/receiveTranscript
     # Set credentials via cf set-env — never commit keys
