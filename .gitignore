@@ -35,3 +35,17 @@ mta_archives/
 
 # @cap-js/cds-typer
 @cds-models
+
+# Media files
+*.mp4
+bridge/MJ.mp3
+bridge/vocals.mp3
+
+# Blog build artifacts
+blog-screenshots/node_modules/
+blog-screenshots/*.docx
+blog-screenshots/mj-live-blog.html
+blog-screenshots/convert.js
+blog-screenshots/package.json
+blog-screenshots/package-lock.json
+blog-screenshots/~$*

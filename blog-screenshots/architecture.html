@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MJ Live — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  h1 {
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 13px;
+    letter-spacing: 6px;
+    color: #c9a84c;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+    opacity: 0.7;
+  }
+
+  .diagram {
+    display: grid;
+    grid-template-columns: 160px 60px 160px 60px 220px 60px 160px;
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 1100px;
+  }
+
+  .box {
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+    position: relative;
+  }
+
+  .box-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .box-sub {
+    font-size: 10px;
+    opacity: 0.55;
+    line-height: 1.5;
+  }
+
+  .box.producer  { background: #161b22; border-color: #30363d; }
+  .box.producer .box-title { color: #8b949e; }
+
+  .box.bridge    { background: #1a1f2e; border-color: #3a4a6b; }
+  .box.bridge .box-title { color: #79b8ff; }
+
+  .box.cap       { background: #1d1f12; border-color: #4a5a1a; }
+  .box.cap .box-title { color: #b5d45a; }
+
+  .box.ai        { background: #1e1420; border-color: #5a3a6b; }
+  .box.ai .box-title { color: #c084fc; }
+
+  .box.data      { background: #12201e; border-color: #2a5a4a; }
+  .box.data .box-title { color: #56d8a8; }
+
+  .box.solace    { background: #201812; border-color: #6b4a1a; }
+  .box.solace .box-title { color: #f0a050; }
+
+  .box.consumer  { background: #1a1215; border-color: #6b1a2a; }
+  .box.consumer .box-title { color: #f85149; }
+
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .arrow-line {
+    width: 100%;
+    height: 1px;
+    background: #30363d;
+    position: relative;
+  }
+
+  .arrow-label {
+    font-size: 8px;
+    color: #484f58;
+    letter-spacing: 0.5px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .arrow-right::after {
+    content: '▶';
+    font-size: 8px;
+    color: #484f58;
+    position: absolute;
+    right: -4px;
+    top: -5px;
+  }
+
+  /* Vertical section labels */
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #484f58;
+    text-align: center;
+    padding: 8px 4px;
+    writing-mode: vertical-rl;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Bottom row: AI components detail */
+  .ai-detail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .chip {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 9px;
+    color: #8b949e;
+    text-align: center;
+  }
+
+  .chip span {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: #c9a84c;
+    margin-bottom: 2px;
+  }
+
+  /* Mode badges */
+  .modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+    justify-content: center;
+  }
+
+  .mode {
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 8px;
+    color: #c9a84c;
+    white-space: nowrap;
+  }
+
+  /* Full-width flow row */
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 1100px;
+    margin-bottom: 16px;
+  }
+
+  .flow-box {
+    flex: 1;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .flow-arrow {
+    flex: 0 0 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .fa-line {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to right, #30363d, #484f58);
+    position: relative;
+  }
+
+  .fa-line::after {
+    content: '▶';
+    font-size: 9px;
+    color: #484f58;
+    position: absolute;
+    right: -3px;
+    top: -6px;
+  }
+
+  .fa-label {
+    font-size: 8px;
+    color: #484f58;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+
+  .footer {
+    margin-top: 32px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: #8b949e;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>MJ Live — AI Cognitive Pipeline Architecture</h1>
+
+<!-- Main flow -->
+<div class="flow-row">
+
+  <!-- Producer -->
+  <div class="flow-box producer" style="flex:0.9;">
+    <div class="box-title" style="color:#8b949e;">Producer</div>
+    <div class="box-sub">Browser<br>MJ.mp3 playback<br>PCM audio stream</div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="fa-line"></div>
+    <div class="fa-label">PCM audio</div>
+  </div>
+
+  <!-- ElevenLabs -->
+  <div class="flow-box" style="flex:1;background:#12161e;border-color:#3a5a8b;">
+    <div class="box-title" style="color:#79b8ff;">ElevenLabs STT</div>
+    <div class="box-sub">scribe_v2_realtime<br>partial + final transcripts<br>16kHz PCM stream</div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="fa-line"></div>
+    <div class="fa-label">sentences (3-batch)</div>
+  </div>
+
+  <!-- Bridge -->
+  <div class="flow-box bridge" style="flex:1.1;">
+    <div class="box-title">Bridge</div>
+    <div class="box-sub">Node.js · SAP BTP CF<br>Sentence extraction &amp; batching<br>WebSocket server</div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="fa-line"></div>
+    <div class="fa-label">receiveTranscript</div>
+  </div>
+
+  <!-- CAP -->
+  <div class="flow-box cap" style="flex:1.3;">
+    <div class="box-title">SAP CAP</div>
+    <div class="box-sub">Node.js · SAP BTP CF<br>8-mode cognitive pipeline<br>Session memory</div>
+    <div class="modes">
+      <div class="mode">01 Transcript</div>
+      <div class="mode">02 Claude Haiku</div>
+      <div class="mode">03 RAG</div>
+      <div class="mode">04 Memory</div>
+      <div class="mode">05 Reasoning</div>
+      <div class="mode">07 Synthesis</div>
+      <div class="mode">08 Finale</div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="fa-line"></div>
+    <div class="fa-label">chronicle/event</div>
+  </div>
+
+  <!-- Solace -->
+  <div class="flow-box solace" style="flex:0.9;">
+    <div class="box-title">Solace</div>
+    <div class="box-sub">Event Broker<br>Pub/Sub messaging<br>SAP Integration Suite</div>
+  </div>
+
+  <div class="flow-arrow">
+    <div class="fa-line"></div>
+    <div class="fa-label">WebSocket</div>
+  </div>
+
+  <!-- Consumer -->
+  <div class="flow-box consumer" style="flex:1;">
+    <div class="box-title">Consumer UI</div>
+    <div class="box-sub">Browser · Live display<br>World map · Pipeline<br>Chronicle · Finale</div>
+  </div>
+
+</div>
+
+<!-- AI & Data row -->
+<div style="display:flex;gap:16px;width:100%;max-width:1100px;margin-bottom:32px;">
+
+  <div style="flex:0 0 160px;"></div><!-- spacer -->
+  <div style="flex:0 0 48px;"></div>
+  <div style="flex:0 0 160px;"></div>
+  <div style="flex:0 0 48px;"></div>
+
+  <!-- CAP internals — pointing up -->
+  <div style="flex:1.3;display:flex;flex-direction:column;gap:8px;">
+
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <!-- Claude -->
+      <div style="flex:1;background:#1e1420;border:1px solid #5a3a6b;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:10px;font-weight:600;color:#c084fc;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Claude Haiku</div>
+        <div style="font-size:9px;color:#8b949e;line-height:1.5;">Event identification<br>Emotion classification<br>Insight generation</div>
+        <div style="font-size:8px;color:#c084fc;margin-top:6px;opacity:0.7;">claude-haiku-4-5</div>
+      </div>
+
+      <!-- Claude Opus -->
+      <div style="flex:1;background:#1e1420;border:1px solid #5a3a6b;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:10px;font-weight:600;color:#c084fc;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Claude Opus</div>
+        <div style="font-size:9px;color:#8b949e;line-height:1.5;">Finale reflection<br>Pattern synthesis<br>Closing question</div>
+        <div style="font-size:8px;color:#c084fc;margin-top:6px;opacity:0.7;">claude-opus-4-7</div>
+      </div>
+
+      <!-- OpenAI -->
+      <div style="flex:1;background:#12201e;border:1px solid #2a5a4a;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:10px;font-weight:600;color:#56d8a8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">OpenAI Embeddings</div>
+        <div style="font-size:9px;color:#8b949e;line-height:1.5;">Vector search<br>Per-event RAG query<br>Cosine similarity</div>
+        <div style="font-size:8px;color:#56d8a8;margin-top:6px;opacity:0.7;">text-embedding-3-small</div>
+      </div>
+
+      <!-- HANA -->
+      <div style="flex:1;background:#12201e;border:1px solid #2a5a4a;border-radius:8px;padding:12px;text-align:center;">
+        <div style="font-size:10px;font-weight:600;color:#56d8a8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">SAP HANA Cloud</div>
+        <div style="font-size:9px;color:#8b949e;line-height:1.5;">86 KB entries<br>Pre-computed vectors<br>Chronicle events</div>
+        <div style="font-size:8px;color:#56d8a8;margin-top:6px;opacity:0.7;">hdi-shared</div>
+      </div>
+    </div>
+
+    <div style="font-size:8px;color:#484f58;text-align:center;letter-spacing:1px;">↑ COGNITIVE PIPELINE INTERNALS ↑</div>
+
+  </div>
+
+</div>
+
+<!-- Footer legend -->
+<div class="footer">
+  <div class="legend-item"><div class="legend-dot" style="background:#3a5a8b;"></div>Speech-to-Text</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3a4a6b;"></div>Bridge (Node.js)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4a5a1a;"></div>SAP CAP + HANA</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#5a3a6b;"></div>Anthropic Claude</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2a5a4a;"></div>OpenAI + HANA KB</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6b4a1a;"></div>Solace Messaging</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6b1a2a;"></div>Consumer UI</div>
+</div>
+
+</body>
+</html>

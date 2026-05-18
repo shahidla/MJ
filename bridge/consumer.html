@@ -696,18 +696,21 @@ function typewriter(el, text, msPerWord = 120) {
   next();
 }
 
-function dismissFinale() {
-  document.getElementById('finale-panel').classList.remove('visible');
-}
-
+let finaleShown = false;
 function handleFinale(payload) {
+  if (finaleShown) return; // prevent double-trigger from WebSocket + Solace
+  finaleShown = true;
   const panel = document.getElementById('finale-panel');
   const textEl = document.getElementById('finale-text');
   textEl.textContent = '';
   panel.classList.add('visible');
   showStatus('AI closing reflection');
-  // Fix 4: word-by-word typewriter reveal
   setTimeout(() => typewriter(textEl, payload.reflection || '', 110), 800);
+}
+
+function dismissFinale() {
+  document.getElementById('finale-panel').classList.remove('visible');
+  finaleShown = false; // allow re-trigger after dismiss
 }
 
 // Fix 3: dismiss finale on ESC or click

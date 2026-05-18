@@ -94,7 +94,10 @@ function updateMemory(event) {
 }
 
 // ── Act transition detection ─────────────────────────────────────────────────
-// Detects when dominant emotion has shifted — triggers between-act reflection
+// Designed to detect when the dominant emotion shifts between acts (wonder → anger → grief → hope).
+// Intended to trigger generateReflection() at each transition point.
+// Not currently wired into the pipeline — kept for future use.
+/*
 function detectActTransition() {
   const arc = sessionMemory.emotionArc;
   if (arc.length < 4) return null;
@@ -112,6 +115,7 @@ function detectActTransition() {
   }
   return null;
 }
+*/
 
 function buildMemoryContext() {
   if (sessionMemory.events.length === 0) return 'This is the beginning. Nothing witnessed yet.';
@@ -325,6 +329,10 @@ Return ONLY a JSON array, no markdown:
 }
 
 // ── Mode 6: Reflective Evaluation — between-act sentence ───────────────────
+// Generates one reflective sentence when emotion shifts between acts (e.g. wonder → anger).
+// Designed to be triggered by detectActTransition() after each transcript is processed.
+// Not currently called — left here for future implementation.
+/*
 async function generateReflection(transition) {
   const model = getModel();
   const memoryContext = buildMemoryContext();
@@ -341,6 +349,7 @@ The sentence must feel earned, not generic. Reference specific moments you witne
   const response = await model.invoke([new HumanMessage(prompt)]);
   return response.content.trim();
 }
+*/
 
 // ── Modes 7+8: Pattern Synthesis + Generative Expression — the finale ───────
 async function generateFinale() {
