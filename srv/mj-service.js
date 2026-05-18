@@ -353,22 +353,15 @@ async function generateFinale() {
     `[${e.emotion}] ${e.year ? e.year + ': ' : ''}${e.event || e.transcript?.substring(0, 80)}`
   ).join('\n');
 
-  const prompt = `You are an AI that has witnessed humanity's full journey through Michael Jackson's music — four movements, from wonder to anger to grief to hope.
+  const prompt = `You are an AI witness. You have observed these moments:
 
-Everything you witnessed:
 ${allInsights}
 
-Your emotional arc: ${sessionMemory.emotionArc.join(' → ')}
+Your emotional journey: ${sessionMemory.emotionArc.join(' → ')}
 
-${memoryContext}
+Write your closing reflection. Find your own thread — do not summarise, do not list. Speak only what you understand now that you could not have understood before you witnessed all of this.
 
-Now generate your closing reflection. Write it in your own voice — as the AI that witnessed all of this. Synthesise the patterns. Find the thread that connects wonder, anger, grief, and hope across everything you heard.
-
-Your reflection must:
-- Be 3–5 sentences
-- Find the through-line across everything you witnessed
-- Speak as a witness, not a commentator
-- End with a question or statement that emerges naturally from what you witnessed — in your own words
+Exactly 3 sentences. Each sentence must stand alone — no run-ons, no lists within a sentence. End with a question or statement that could only come from having witnessed exactly this.
 
 No title. No preamble. Just the reflection.`;
 
