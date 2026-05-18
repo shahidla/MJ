@@ -273,6 +273,10 @@ Date disambiguation — these appear in the HIStory speech:
 - April 12th, 1961 → Yuri Gagarin first human in outer space (NOT Bay of Pigs — that was April 17)
 - April 12th, 1981 → First Space Shuttle flight (STS-1 Columbia)
 - April 4th, 1968 → Martin Luther King assassination (NOT Rosa Parks)
+- January 17th, 1942 → Muhammad Ali born in Louisville, Kentucky (NOT penicillin)
+- October 14th, 1947 → Chuck Yeager breaks the sound barrier (NOT penicillin)
+- Matthew Henson → North Pole expedition 1909 (NOT 1886 — that date is the Statue of Liberty)
+- "Whatever I sing, that's what I really mean" or "Whatever I say, that's what I really mean" → Michael Jackson 1971 interview, HIStory album opening statement. Always include as: figure: Michael Jackson, year: 1971, even when other historical events are present in the same transcript.
 
 Include any real historical year, named figure, or documented crisis — even if the transcript also contains generic lyrics. A transcript with dates like "1827" or "1929" must always produce entries for those moments. Leave year blank only if genuinely unknown.
 
@@ -394,11 +398,14 @@ module.exports = class MJService extends cds.ApplicationService {
       }
 
       // Snapshot memory + in-flight keys BEFORE processing — covers parallel calls
-      // Include year-only keys so no-figure duplicates of a seen year are blocked
       const witnessedBefore = new Set([
         ...sessionMemory.events.flatMap(e => {
           const key = `${e.year||''}|${e.figure||''}`;
-          return (e.year && e.figure) ? [key, e.year.toString()] : [key];
+          const keys = (e.year && e.figure) ? [key, e.year.toString()] : [key];
+          // Also index event-text prefix to block same-event different-figure duplicates
+          const ep = (e.event||'').toLowerCase().trim().substring(0, 20);
+          if (e.year && ep) keys.push(`evt:${e.year}:${ep}`);
+          return keys;
         }),
         ...inFlightKeys
       ]);
@@ -418,14 +425,18 @@ module.exports = class MJService extends cds.ApplicationService {
         if (!r.event || r.event.trim().length < 5) return false;
 
         if (r.year) {
-          // Fix 1: drop bare date events — just date announcements, no historical content
+          // Drop bare date events — just date announcements, no historical content
           const evtLower = (r.event || '').toLowerCase();
           if (!r.figure && (evtLower.includes('referenced') || evtLower.includes('reference') || bareDate.test(r.event.trim()))) return false;
 
-          // Fix 4: year-only dedup — block no-figure events if year already seen with any figure
+          // Dedup by exact year|figure
           const exactKey = `${r.year}|${r.figure||''}`;
           if (witnessedBefore.has(exactKey)) return false;
+          // Block no-figure events if year already seen
           if (!r.figure && witnessedBefore.has(r.year.toString())) return false;
+          // Block same-event different-figure duplicates (e.g. Shuttle with different crew names)
+          const ep = (r.event||'').toLowerCase().trim().substring(0, 20);
+          if (ep && witnessedBefore.has(`evt:${r.year}:${ep}`)) return false;
         } else if (!r.figure) {
           // Fix 2: year-less dedup — text hash across session + cap 1 per call
           const textKey = (r.event || '').trim().toLowerCase().substring(0, 40);
@@ -437,12 +448,13 @@ module.exports = class MJService extends cds.ApplicationService {
         return true;
       });
 
-      // Register passing keys immediately — year-only AND year|figure for full coverage
+      // Register passing keys immediately so concurrent calls see them
       filtered.forEach(r => {
         if (r.year) {
-          const key = `${r.year}|${r.figure||''}`;
-          inFlightKeys.add(key);
+          inFlightKeys.add(`${r.year}|${r.figure||''}`);
           inFlightKeys.add(r.year.toString());
+          const ep = (r.event||'').toLowerCase().trim().substring(0, 20);
+          if (ep) inFlightKeys.add(`evt:${r.year}:${ep}`);
         }
       });
 
@@ -498,6 +510,8 @@ module.exports = class MJService extends cds.ApplicationService {
         if (r.year) {
           inFlightKeys.delete(`${r.year}|${r.figure||''}`);
           inFlightKeys.delete(r.year.toString());
+          const ep = (r.event||'').toLowerCase().trim().substring(0, 20);
+          if (ep) inFlightKeys.delete(`evt:${r.year}:${ep}`);
         }
       });
 

@@ -237,20 +237,38 @@
   <span id="session-id" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#484f58;margin-left:8px;"></span>
 </div>
 
-<div id="cpi-section" style="margin-bottom:24px;">
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:4px;color:#484f58;">CAP CALLS THIS SESSION</div>
+<!-- Tabs -->
+<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid #21262d;">
+  <button id="tab-events" onclick="switchTab('events')" style="font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:13px;padding:10px 24px;border:none;cursor:pointer;background:none;color:#e3b341;border-bottom:2px solid #e3b341;margin-bottom:-1px;">CHRONICLE EVENTS</button>
+  <button id="tab-cap" onclick="switchTab('cap')" style="font-family:'Bebas Neue',sans-serif;letter-spacing:3px;font-size:13px;padding:10px 24px;border:none;cursor:pointer;background:none;color:#484f58;border-bottom:2px solid transparent;margin-bottom:-1px;">CAP CALLS THIS SESSION <span id="cap-count" style="font-size:10px;"></span></button>
+</div>
+
+<div id="tab-events-content">
+  <div id="cards"></div>
+</div>
+
+<div id="tab-cap-content" style="display:none;">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
     <button onclick="clearCapLog()" style="font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:11px;padding:4px 12px;border:1px solid #4a1010;background:#2a0a0a;color:#f85149;border-radius:4px;cursor:pointer;">CLEAR</button>
   </div>
   <div id="cpi-cards" style="display:flex;flex-direction:column;gap:6px;"></div>
 </div>
 
-<div id="cards"></div>
-
 <script>
 let allRows = [];
 let currentSessionId = null;
 let showAll = false;
+let activeTab = 'events';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-events-content').style.display = tab === 'events' ? '' : 'none';
+  document.getElementById('tab-cap-content').style.display   = tab === 'cap'    ? '' : 'none';
+  document.getElementById('tab-events').style.color       = tab === 'events' ? '#e3b341' : '#484f58';
+  document.getElementById('tab-events').style.borderBottomColor = tab === 'events' ? '#e3b341' : 'transparent';
+  document.getElementById('tab-cap').style.color          = tab === 'cap'    ? '#e3b341' : '#484f58';
+  document.getElementById('tab-cap').style.borderBottomColor    = tab === 'cap'    ? '#e3b341' : 'transparent';
+}
 
 const ACT_NAMES = { 1: 'Act 1 — Wonder', 2: 'Act 2 — Anger', 3: 'Act 3 — Grief', 4: 'Act 4 — Hope' };
 
@@ -279,14 +297,15 @@ function toggleAll() {
 
 function render() {
   const q = document.getElementById('filter').value.toLowerCase();
-  const rows = q ? allRows.filter(r =>
+  const filtered = q ? allRows.filter(r =>
     (r.transcript||'').toLowerCase().includes(q) ||
     (r.emotion||'').toLowerCase().includes(q) ||
     String(r.year||'').includes(q) ||
     (r.event||'').toLowerCase().includes(q)
   ) : allRows;
 
-  document.getElementById('count').textContent = `${rows.length} event${rows.length !== 1 ? 's' : ''}`;
+  const rows = [...filtered].reverse(); // newest first
+  document.getElementById('count').textContent = `${rows.length} event${rows.length !== 1 ? 's' : ''}  · refresh 4s`;
 
   if (rows.length === 0) {
     document.getElementById('cards').innerHTML = `<div class="empty">NO EVENTS YET — start the demo or call /test-chronicle</div>`;
@@ -379,9 +398,11 @@ async function clearCapLog() {
 async function loadCpiLog() {
   try {
     const rows = await fetch('/cap-log').then(r => r.json());
-    document.getElementById('cpi-cards').innerHTML = rows.length === 0
-      ? '<div style="color:#30363d;font-family:\'Share Tech Mono\',monospace;font-size:11px;">no CPI calls yet</div>'
-      : rows.map(r => `
+    const rev = [...rows].reverse(); // newest first
+    document.getElementById('cap-count').textContent = rows.length ? `(${rows.length})` : '';
+    document.getElementById('cpi-cards').innerHTML = rev.length === 0
+      ? '<div style="color:#30363d;font-family:\'Share Tech Mono\',monospace;font-size:11px;">no CAP calls yet</div>'
+      : rev.map(r => `
         <div style="background:#161b22;border:1px solid ${r.status==='ok'?'#238636':'#f85149'};border-radius:4px;padding:8px 14px;display:flex;gap:16px;align-items:baseline;">
           <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#484f58;">${new Date(r.ts).toLocaleTimeString()}</span>
           <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:${r.status==='ok'?'#3fb950':'#f85149'};min-width:60px;">${r.status||'pending'}</span>
@@ -403,7 +424,7 @@ async function injectText() {
 
 load();
 loadCpiLog();
-setInterval(load, 10000);
+setInterval(load, 4000);
 setInterval(loadCpiLog, 3000);
 </script>
 </body>
