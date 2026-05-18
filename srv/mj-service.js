@@ -46,14 +46,18 @@ function publishStatus(mode, label) {
   publishToSolace('pipeline/status', { mode, label });
 }
 
+// ── In-flight key registry — prevents parallel CAP calls duplicating same event ──
+const inFlightKeys = new Set();
+
 // ── Session state — accumulates across all 4 acts ──────────────────────────
 // Temporal Memory (Mode 4): what the AI has witnessed so far
 // Relational Reasoning (Mode 5): connections the AI has drawn across acts
 const sessionMemory = {
-  events: [],       // all processed events in order
-  keyFigures: {},   // { "Martin Luther King": [{ act_emotion, insight }] }
-  emotionArc: [],   // sequence of emotions — reveals narrative arc
-  actSummaries: {}  // { wonder: "...", anger: "...", grief: "...", hope: "..." }
+  events: [],          // all processed events in order
+  keyFigures: {},      // { "Martin Luther King": [{ act_emotion, insight }] }
+  emotionArc: [],      // sequence of emotions — reveals narrative arc
+  actSummaries: {},    // { wonder: "...", anger: "...", grief: "...", hope: "..." }
+  seenEventTexts: new Set() // dedup for year-less/figure-less events by event text
 };
 
 function updateMemory(event) {
@@ -242,25 +246,37 @@ async function ragKeyword(db, transcript) {
 async function cognitiveProcess(db, transcript) {
   publishStatus(1, 'transcript received — pipeline starting');
 
-  // Mode 3: Contextual Retrieval — query HANA for historical context
-  publishStatus(3, 'embedding transcript — searching knowledge base via vector similarity');
-  const ragContext = await ragRetrieve(db, transcript);
-
   // Mode 4: Temporal Memory — build structured context of what AI has witnessed
   publishStatus(4, 'building temporal memory context across all acts');
   const memoryContext = buildMemoryContext();
 
-  // Mode 2 + 5: Classification + Relational Reasoning
-  publishStatus(2, 'Claude Haiku — classifying emotion / year / event / insight');
+  // Mode 2: Claude identifies all distinct moments first (no RAG yet)
+  publishStatus(2, 'Claude Haiku — identifying moments in transcript');
   const model = getModel();
   const systemPrompt = `You are an AI witnessing humanity's journey through Michael Jackson's music in real time.
 
 WHAT YOU HAVE WITNESSED SO FAR:
 ${memoryContext}
 
-${ragContext ? `HISTORICAL CONTEXT FROM KNOWLEDGE BASE:\n${ragContext}\n` : ''}
+Split the transcript into distinct moments — one entry per named person, year, or historical event. Return at most 3 entries — prioritise the most historically specific moments.
 
-Split the transcript into distinct moments — one entry per named person, year, or historical event. Only include real historical moments, named figures, or meaningful dates. Leave year blank if no specific historical year is spoken.
+For "What about X" song lyrics: each subject becomes its own entry. Use your knowledge to connect each to its historical crisis year:
+- "What about elephants" → African elephant poaching crisis, 1986, Africa
+- "What about crying whales" → IWC commercial whaling moratorium, 1986, lat:-60,lng:0 (Southern Ocean)
+- "What about forests" → Amazon deforestation crisis, 1988, Brazil
+- "What about children dying" → Somalia famine and child mortality crisis, 1992, Somalia
+- "What about the oceans" → marine pollution crisis, 1980s
+- "What about ecstasy" → spiritual ecstasy and awe — NOT narcotics. Do not connect to drugs.
+- "What about Ryan White" or "Ryan" in Earth Song → Ryan White AIDS crisis, 1988, United States
+
+Date disambiguation — these appear in the HIStory speech:
+- April 12th, 1961 → Yuri Gagarin first human in outer space (NOT Bay of Pigs — that was April 17)
+- April 12th, 1981 → First Space Shuttle flight (STS-1 Columbia)
+- April 4th, 1968 → Martin Luther King assassination (NOT Rosa Parks)
+
+Include any real historical year, named figure, or documented crisis — even if the transcript also contains generic lyrics. A transcript with dates like "1827" or "1929" must always produce entries for those moments. Leave year blank only if genuinely unknown.
+
+Never connect lyrics about discrimination, injustice, or being "thrown in a class with a bad name" to Michael Jackson's personal legal history — these songs address systemic racism and social injustice, not his private life.
 
 Return ONLY a JSON array, no markdown:
 
@@ -273,7 +289,6 @@ Return ONLY a JSON array, no markdown:
 
   const text = response.content.trim();
 
-  // Parse Claude response — expect array of events
   let results = [];
   try {
     const start = text.indexOf('[');
@@ -281,7 +296,6 @@ Return ONLY a JSON array, no markdown:
     if (start >= 0) {
       results = JSON.parse(text.substring(start, end));
     } else {
-      // fallback: single object wrapped
       const os = text.indexOf('{'), oe = text.lastIndexOf('}') + 1;
       if (os >= 0) results = [JSON.parse(text.substring(os, oe))];
     }
@@ -289,13 +303,21 @@ Return ONLY a JSON array, no markdown:
     console.warn('Claude parse error:', e.message);
   }
 
-  // Mode 5: Update session memory — only meaningful events
-  publishStatus(5, 'connecting figures and events across acts');
-  results.filter(r => !r.skip).forEach(r => updateMemory({ ...r, transcript }));
+  // Mode 3: Per-event RAG — each event gets its own targeted KB search
+  publishStatus(3, 'searching knowledge base — one query per event');
+  const resultsWithRag = await Promise.all(results.map(async r => {
+    const hasSpecifics = r.year || r.figure || (r.event && r.event.length > 20 && !r.event.toLowerCase().includes('concern') && !r.event.toLowerCase().includes('humanitarian'));
+    const query = hasSpecifics
+      ? [r.figure, r.year, r.event].filter(Boolean).join(' ')
+      : transcript;
+    console.log(`RAG query for event "${(r.event||'').substring(0,30)}": "${query.substring(0,60)}"`);
+    const ragContext = await ragRetrieve(db, query);
+    return { ...r, ragContext };
+  }));
 
-  console.log(`Cognitive modes 2-5 complete. ${results.length} event(s), total seen: ${sessionMemory.events.length}`);
+  console.log(`Cognitive modes 2-4 complete. ${resultsWithRag.length} event(s) from Claude.`);
 
-  return results.map(r => ({ ...r, ragContext, transcript }));
+  return resultsWithRag.map(r => ({ ...r, transcript }));
 }
 
 // ── Mode 6: Reflective Evaluation — between-act sentence ───────────────────
@@ -322,6 +344,7 @@ async function generateFinale() {
     modelName: 'claude-opus-4-7',  // Opus for the finale — this moment deserves it
     apiKey: process.env.ANTHROPIC_API_KEY,
     maxTokens: 1024,
+    topP: 1,  // explicit — LangChain default of -1 is rejected by this model
   });
 
   const memoryContext = buildMemoryContext();
@@ -370,8 +393,15 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: 'db_unavailable' });
       }
 
-      // Snapshot memory BEFORE processing — used for dedup after
-      const witnessedBefore = new Set(sessionMemory.events.map(e => `${e.year||''}|${e.figure||''}`));
+      // Snapshot memory + in-flight keys BEFORE processing — covers parallel calls
+      // Include year-only keys so no-figure duplicates of a seen year are blocked
+      const witnessedBefore = new Set([
+        ...sessionMemory.events.flatMap(e => {
+          const key = `${e.year||''}|${e.figure||''}`;
+          return (e.year && e.figure) ? [key, e.year.toString()] : [key];
+        }),
+        ...inFlightKeys
+      ]);
 
       let results;
       try {
@@ -381,13 +411,45 @@ module.exports = class MJService extends cds.ApplicationService {
         return JSON.stringify({ error: e.message });
       }
 
-      // Dedup against what was witnessed BEFORE this transcript (not what this transcript added)
+      // Dedup against witnessed + in-flight keys (covers parallel CAP calls)
+      const bareDate = /^(january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?\s)/i;
+      let yearlessFromThisCall = 0;
       const filtered = results.filter(r => {
-        if (!r.event || r.event.trim().length < 5) return false; // skip empty or trivial events
-        const key = `${r.year||''}|${r.figure||''}`;
-        if ((r.year || r.figure) && witnessedBefore.has(key)) return false; // dedup
+        if (!r.event || r.event.trim().length < 5) return false;
+
+        if (r.year) {
+          // Fix 1: drop bare date events — just date announcements, no historical content
+          const evtLower = (r.event || '').toLowerCase();
+          if (!r.figure && (evtLower.includes('referenced') || evtLower.includes('reference') || bareDate.test(r.event.trim()))) return false;
+
+          // Fix 4: year-only dedup — block no-figure events if year already seen with any figure
+          const exactKey = `${r.year}|${r.figure||''}`;
+          if (witnessedBefore.has(exactKey)) return false;
+          if (!r.figure && witnessedBefore.has(r.year.toString())) return false;
+        } else if (!r.figure) {
+          // Fix 2: year-less dedup — text hash across session + cap 1 per call
+          const textKey = (r.event || '').trim().toLowerCase().substring(0, 40);
+          if (sessionMemory.seenEventTexts.has(textKey)) return false;
+          yearlessFromThisCall++;
+          if (yearlessFromThisCall > 1) return false;
+          sessionMemory.seenEventTexts.add(textKey);
+        }
         return true;
       });
+
+      // Register passing keys immediately — year-only AND year|figure for full coverage
+      filtered.forEach(r => {
+        if (r.year) {
+          const key = `${r.year}|${r.figure||''}`;
+          inFlightKeys.add(key);
+          inFlightKeys.add(r.year.toString());
+        }
+      });
+
+      // Mode 5: Update session memory — only for events that pass dedup and will be persisted
+      publishStatus(5, 'connecting figures and events across acts');
+      filtered.forEach(r => updateMemory({ ...r, transcript }));
+      console.log(`CAP: ${filtered.length} event(s) passed dedup. Total witnessed: ${sessionMemory.events.length}`);
 
       const payloads = [];
       for (const result of filtered) {
@@ -431,6 +493,14 @@ module.exports = class MJService extends cds.ApplicationService {
         payloads.push(payload);
       }
 
+      // Release in-flight keys now that memory is updated
+      filtered.forEach(r => {
+        if (r.year) {
+          inFlightKeys.delete(`${r.year}|${r.figure||''}`);
+          inFlightKeys.delete(r.year.toString());
+        }
+      });
+
       console.log(`CAP: persisted + published ${payloads.length} chronicle event(s)`);
       return JSON.stringify(payloads);
     });
@@ -441,6 +511,7 @@ module.exports = class MJService extends cds.ApplicationService {
       sessionMemory.keyFigures = {};
       sessionMemory.emotionArc = [];
       sessionMemory.actSummaries = {};
+      sessionMemory.seenEventTexts = new Set();
       console.log('CAP: session memory reset');
       return JSON.stringify({ reset: true, sessionId: SESSION_ID, ts: new Date().toISOString() });
     });

@@ -62,11 +62,12 @@
   #ws-status.ok  { color: #4caf50; }
   #ws-status.err { color: #f44336; }
 
-  /* ── Main layout: CSS grid — rows are locked, content cannot push them ── */
+  /* ── Main layout: 2-column grid — chronicle spans full right height ── */
   #main-layout {
     position: fixed;
     inset: 0;
     display: grid;
+    grid-template-columns: 70% 30%;
     grid-template-rows: 65vh 10vh 1fr;
     z-index: 10;
     overflow: hidden;
@@ -84,17 +85,19 @@
     padding-bottom: 6px;
   }
 
-  /* ── Top section: pipeline + chronicle ── */
+  /* ── Top section: pipeline only (left column, row 1) ── */
   #top-section {
+    grid-column: 1;
+    grid-row: 1;
     display: flex;
     overflow: hidden;
     background: transparent;
     min-height: 0;
   }
 
-  /* Pipeline: left 75% */
+  /* Pipeline: full width of left column */
   #pipeline-panel {
-    width: 70%;
+    width: 100%;
     padding: 20px 28px 16px;
     border-right: 1px solid #1e1e1e;
     display: flex;
@@ -148,11 +151,12 @@
   .mode-output {
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: clamp(14px, 1.4vw, 18px); /* same as mode-name */
+    font-size: clamp(14px, 1.4vw, 18px);
     color: #555;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
     transition: all 0.4s ease;
     opacity: 0;
   }
@@ -166,15 +170,17 @@
   .mode-row.done   .mode-name   { color: #888; }
   .mode-row.done   .mode-output { color: #ffffff; font-size: clamp(18px, 1.9vw, 26px); font-family: 'Cormorant Garamond', serif; font-style: italic; opacity: 1; }
 
-  /* Chronicle: right 25% */
+  /* Chronicle: right column, spans all 3 rows — full height */
   #chronicle-panel {
-    width: 30%;
+    grid-column: 2;
+    grid-row: 1 / 4;
     padding: 20px 18px 16px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: rgba(8,8,14,0.5);
+    background: rgba(8,8,14,0.6);
     backdrop-filter: blur(1px);
+    border-left: 1px solid #1e1e1e;
   }
 
   #chronicle-entries {
@@ -205,9 +211,9 @@
     font-family: 'Cormorant Garamond', serif;
     font-size: clamp(12px, 1.3vw, 16px);
     color: #e0e0e0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.4;
     margin-top: 2px;
   }
 
@@ -218,8 +224,10 @@
     margin-top: 2px;
   }
 
-  /* ── PERCEPTION bar — raw ElevenLabs transcript ── */
+  /* ── PERCEPTION bar (left column, row 2) ── */
   #perception-bar {
+    grid-column: 1;
+    grid-row: 2;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -252,8 +260,10 @@
     transition: opacity 0.15s ease;
   }
 
-  /* ── Bottom bar: EQ canvas + emotions ── */
+  /* ── Bottom bar: EQ 35% + emotion 35% (left column, row 3) ── */
   #bottom-bar {
+    grid-column: 1;
+    grid-row: 3;
     overflow: hidden;
     display: flex;
     border-top: 1px solid #2a2a2a;
@@ -262,7 +272,7 @@
   }
 
   #eq-container {
-    width: 50%;
+    width: 50%; /* 50% of the 70% left column = 35% of total */
     padding: 10px 16px;
     border-right: 1px solid #1e1e1e;
     display: flex;
@@ -316,21 +326,17 @@
     transition: width 1.2s ease;
   }
 
-  /* ── Pipeline status subtitle ── */
+  /* ── Pipeline status — inline beside heading ── */
   #pipeline-status {
-    position: fixed;
-    bottom: 21vh;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 30;
     font-family: 'Share Tech Mono', monospace;
-    font-size: clamp(9px, 0.85vw, 11px);
-    letter-spacing: 2px;
-    color: rgba(201,168,76,0.5);
+    font-size: clamp(9px, 0.8vw, 11px);
+    letter-spacing: 1px;
+    color: rgba(201,168,76,0.6);
     opacity: 0;
     transition: opacity 0.3s ease;
     white-space: nowrap;
-    pointer-events: none;
+    margin-left: 12px;
+    align-self: center;
   }
   #pipeline-status.visible { opacity: 1; }
 
@@ -381,11 +387,13 @@
 <!-- Main layout -->
 <div id="main-layout">
 
-  <!-- Top 80%: Pipeline + Chronicle -->
+  <!-- Top section: Pipeline only (left column row 1) -->
   <div id="top-section">
-
     <div id="pipeline-panel">
-      <div class="section-heading">AI COGNITIVE PIPELINE</div>
+      <div style="display:flex;align-items:baseline;gap:0;">
+        <div class="section-heading">AI COGNITIVE PIPELINE</div>
+        <div id="pipeline-status"></div>
+      </div>
       <div id="pipeline-modes">
         <div class="mode-row" id="mrow-2">
           <span class="mode-name">CLASSIFICATION</span>
@@ -405,12 +413,12 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <div id="chronicle-panel">
-      <div class="section-heading">THE CHRONICLE</div>
-      <div id="chronicle-entries"></div>
-    </div>
-
+  <!-- Chronicle: right column, spans full height -->
+  <div id="chronicle-panel">
+    <div class="section-heading">THE CHRONICLE</div>
+    <div id="chronicle-entries"></div>
   </div>
 
   <!-- 10% Perception bar -->
@@ -432,8 +440,6 @@
   </div>
 
 </div>
-
-<div id="pipeline-status"></div>
 
 <!-- Finale: full screen -->
 <div id="finale-panel">
@@ -577,12 +583,27 @@ function handlePipelineStatus(payload) {
   showStatus(label);
 }
 
-// ── Chronicle/event handler ───────────────────────────────────────────────────
+// ── Chronicle display queue — pace entries 1 second apart ────────────────────
 const seenEvents = new Set();
+const chronicleQueue = [];
+let chronicleTimer = null;
+
+function drainChronicleQueue() {
+  if (chronicleQueue.length === 0) { chronicleTimer = null; return; }
+  const payload = chronicleQueue.shift();
+  renderChronicleEntry(payload);
+  chronicleTimer = setTimeout(drainChronicleQueue, 1000);
+}
+
 function handleChronicleEvent(payload) {
   const key = payload.transcript?.substring(0, 40) + payload.emotion;
   if (seenEvents.has(key)) return;
   seenEvents.add(key);
+  chronicleQueue.push(payload);
+  if (!chronicleTimer) drainChronicleQueue();
+}
+
+function renderChronicleEntry(payload) {
   setModeOutput(2, `${payload.emotion || '—'} · ${payload.year || '—'}${payload.figure ? ' · ' + payload.figure : ''}`);
   setModeOutput(3, (payload.ragContext || '').substring(0, 100) + (payload.ragContext?.length > 100 ? '…' : ''));
   setModeOutput(4, Object.keys(emotionCounts).join(' → ') || '—');
@@ -595,7 +616,7 @@ function handleChronicleEvent(payload) {
 
   addChronicleEntry(payload);
   trackEmotion(payload.emotion);
-  if (payload.lat && payload.lng) plotMapDot(payload.lat, payload.lng);
+  if (payload.lat != null && payload.lng != null && (payload.lat !== 0 || payload.lng !== 0)) plotMapDot(payload.lat, payload.lng);
 }
 
 // ── Chronicle entry ───────────────────────────────────────────────────────────

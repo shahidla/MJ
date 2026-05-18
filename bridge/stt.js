@@ -21,9 +21,12 @@ let sessionReady     = false;
 let onTranscriptCb   = null;
 let onChronicleEvCb  = null;
 
-// ── Partials → sentence extraction → CAP + PERCEPTION display ────────────────
-// Finals → full text → CAP (guaranteed catch-all for end of audio)
+// ── Partials → sentence batching → CAP + PERCEPTION display ─────────────────
+// Accumulate 3 sentences before sending so Claude gets context across adjacent sentences.
+// Finals → full text → CAP (guaranteed catch-all for end of audio).
 const sentExact = new Set();
+const sentenceBatch = [];
+const BATCH_SIZE = 3;
 
 function extractSentences(text) {
   return text.split(/(?<=[.?!]['"]?)\s+/).map(s => s.trim()).filter(s => /[.?!]['"]?$/.test(s) && s.length > 4);
@@ -34,11 +37,28 @@ function addToBatch(text) {
   if (!clean) return;
   for (const sentence of extractSentences(clean)) {
     if (sentExact.has(sentence)) continue;
+    if (sentence.length < 15) { sentExact.add(sentence); continue; } // skip trivial
     sentExact.add(sentence);
-    forwardToCAP(sentence);
+    // Replace earlier draft of same sentence still in batch (STT self-corrects)
+    const prefix = sentence.substring(0, Math.min(15, sentence.length));
+    const existingIdx = sentenceBatch.findIndex(s =>
+      s.startsWith(prefix) || sentence.startsWith(s.substring(0, Math.min(15, s.length)))
+    );
+    if (existingIdx >= 0) {
+      sentenceBatch[existingIdx] = sentence; // upgrade to latest version
+    } else {
+      sentenceBatch.push(sentence);
+    }
+  }
+  if (sentenceBatch.length >= BATCH_SIZE) {
+    forwardToCAP(sentenceBatch.splice(0, BATCH_SIZE).join(' '));
   }
 }
+
 function flushBatch() {
+  if (sentenceBatch.length > 0) {
+    forwardToCAP(sentenceBatch.splice(0).join(' '));
+  }
   sentExact.clear();
   if (connection && sessionReady) {
     try { connection.commit(); console.log('STT: forced commit on audio end'); } catch (_) {}
@@ -101,6 +121,7 @@ async function sendToCAP(body) {
 async function forwardToCAP(text) {
   const body = sanitize(text);
   if (!body) return;
+  if (body.length < 15) return; // skip trivial transcripts — single words, vocal fillers, stage directions
   if (capInFlightCount >= MAX_CONCURRENT) {
     finalQueue.push(body);
     console.log(`CAP at max (${MAX_CONCURRENT}) — queued (${finalQueue.length} waiting)`);

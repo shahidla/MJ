@@ -229,9 +229,8 @@
 </div>
 
 <div class="controls">
-  <button class="btn-refresh" onclick="load()">REFRESH</button>
-  <button class="btn-clear" onclick="clearAll()">DELETE ALL ENTRIES</button>
-  <button class="btn-reset" onclick="resetSession()">RESET AI MEMORY</button>
+  <button class="btn-refresh" onclick="refresh()">REFRESH</button>
+  <button class="btn-clear" onclick="deleteAll()">DELETE</button>
   <button class="btn-all" id="btn-all" onclick="toggleAll()">SHOW ALL</button>
   <input type="text" id="filter" placeholder="filter by transcript, emotion, year, event..." oninput="render()">
   <span id="count"></span>
@@ -350,24 +349,25 @@ function render() {
   }).join('');
 }
 
-async function clearAll() {
-  try {
-    await fetch('/clear-chronicle', { method: 'POST' });
-    allRows = [];
-    render();
-  } catch (e) {
-    alert('Clear failed: ' + e.message);
-  }
+async function refresh() {
+  currentSessionId = null; // force re-fetch of session ID in case CAP restarted
+  await load();
 }
 
-async function resetSession() {
-  if (!confirm('Reset AI memory? This clears the emotional arc and key figures — does not delete HANA entries.')) return;
+async function deleteAll() {
   try {
-    await fetch('/reset-session', { method: 'POST' });
+    await Promise.all([
+      fetch('/clear-chronicle', { method: 'POST' }),
+      fetch('/reset-session', { method: 'POST' }),
+      fetch('/clear-cap-log', { method: 'POST' })
+    ]);
+    currentSessionId = null;
     allRows = [];
+    document.getElementById('cpi-cards').innerHTML = '';
     render();
+    await load(); // re-fetch current session ID
   } catch (e) {
-    alert('Reset failed: ' + e.message);
+    console.error('Delete failed:', e.message);
   }
 }
 
